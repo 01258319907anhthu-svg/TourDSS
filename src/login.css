@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=DM+Serif+Display:ital@0;1&display=swap');
 
 .login-page{min-height:100vh;display:grid;grid-template-columns:minmax(0,1.08fr) minmax(440px,.92fr);background:#f6f2ea;color:#203534;font-family:'Be Vietnam Pro',sans-serif}
-.login-visual{position:relative;min-height:100vh;padding:42px 7vw 58px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;background:linear-gradient(135deg,rgba(21,43,42,.15),rgba(21,43,42,.7)),url('/images/anh-nen-login-luxury-moi.png') center/cover}
+.login-visual{position:relative;min-height:100vh;padding:42px 7vw 58px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;background:linear-gradient(135deg,rgba(21,43,42,.15),rgba(21,43,42,.7)),url('/images/anh-nen-login.png') center/cover}
 .login-visual-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(16,37,36,.35),rgba(16,37,36,.08) 35%,rgba(16,37,36,.8));pointer-events:none}
 .login-brand,.login-visual-copy,.login-visual-note{position:relative;z-index:1}
 .login-brand{display:flex;align-items:center;gap:11px;color:#fff;font-size:22px;font-weight:600;letter-spacing:-.04em}.login-brand strong,.login-mobile-brand strong{color:#e8c98d}.login-brand-mark{display:grid;place-items:center;width:34px;height:34px;border:1px solid #e5c98e;border-radius:50%;color:#e5c98e;font-size:14px}
@@ -13,3 +13,5 @@
 /* Nhận diện đăng nhập dùng cùng biểu tượng khách sạn với trang chính. */
 .login-logo-mark{display:grid;place-items:center;width:43px;height:43px;border:1px solid #c6ab79;border-radius:14px;color:#fffaf0;background:linear-gradient(145deg,#38534d,#1d3030);box-shadow:0 8px 20px rgba(18,35,34,.24)}.login-logo-mark svg{width:34px;height:34px}.login-mobile-brand{align-items:center;gap:9px}.login-account-note{display:flex;align-items:center;gap:10px;margin:0 0 24px;padding:11px 13px;border:1px solid #e8dcc8;border-radius:12px;background:#fffaf1;color:#203c3a}.login-account-note>span{color:#b39462;font-size:18px}.login-account-note b,.login-account-note small{display:block}.login-account-note b{font-size:11px}.login-account-note small{margin-top:3px;color:#89918b;font-size:9px}.login-error{margin:-4px 0 0;padding:9px 11px;border-radius:8px;background:#fff0eb;color:#b45743;font-size:10px}.login-submit:disabled{opacity:.65;cursor:wait;transform:none}
 @media(max-width:900px){.login-mobile-brand{display:flex}.login-mobile-brand .login-logo-mark{width:36px;height:36px}.login-mobile-brand .login-logo-mark svg{width:29px;height:29px}}
+/* Tên ảnh nền rút gọn */
+.login-visual{background-image:linear-gradient(135deg,rgba(21,43,42,.15),rgba(21,43,42,.7)),url('/images/anh-nen-login.png')}
