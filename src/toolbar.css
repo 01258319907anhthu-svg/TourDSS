@@ -1,0 +1,13 @@
+/* Top toolbar + readable type */
+.app-layout{display:block;min-height:100vh}
+.sidebar{width:100%;min-height:76px;height:auto;display:flex;flex-direction:row;align-items:center;gap:24px;padding:14px 30px;background:#fff;border-right:0;border-bottom:1px solid #e9e2d9;overflow:visible}
+.brand{flex:0 0 auto;margin:0;padding:0}.brand-mark{width:42px;height:42px}.brand h1{font-size:21px}.brand p{font-size:9px}
+.workspace-pill,.menu-label,.sidebar-footer{display:none}
+.navigation{flex:1;min-width:0;display:flex;flex-direction:row;align-items:center;gap:4px;overflow-x:auto;padding:3px 0;scrollbar-width:none}.navigation::-webkit-scrollbar{display:none}
+.nav-item{width:auto;flex:0 0 auto;white-space:nowrap;padding:12px 13px;border-radius:6px;font-size:12px}.nav-icon{font-size:15px}.nav-badge{font-size:8px}
+.main-layout{width:100%}.topbar{min-height:64px;padding:14px 40px}.main-content{padding:38px 40px 55px}
+body{font-size:14px}.page-heading h2{font-size:41px}.page-description{font-size:13px;line-height:1.6}.eyebrow{font-size:9px}.hero-story{min-height:360px}.hero-copy h3{font-size:46px}.hero-copy p{font-size:12px;line-height:1.75}.hero-brow{font-size:9px}.hero-link{font-size:12px}
+.stat-label{font-size:11px}.stat-value{font-size:26px}.stat-description{font-size:11px}.panel-heading h3,.next-step h3,.empty-state h3{font-size:21px}.panel-heading p{font-size:12px}.section-kicker{font-size:9px}.insight-main strong{font-size:15px}.insight-main p{font-size:12px;line-height:1.7}.insight-footer{font-size:11px}.text-button,.ghost-button,.date-button{font-size:12px}th{font-size:9px}td{font-size:12px}.status-tag{font-size:10px}.next-step p{font-size:12px}.primary-button{font-size:12px}
+@media(max-width:1000px){.sidebar{gap:16px;padding-left:20px;padding-right:20px}.nav-item{padding-left:11px;padding-right:11px}.main-content{padding-left:28px;padding-right:28px}}
+@media(max-width:800px){.sidebar{min-height:68px;padding:12px 18px;gap:16px}.brand p{display:none}.navigation{gap:3px}.nav-item{padding:10px 12px;font-size:12px}.nav-item>span:not(.nav-icon):not(.nav-badge){display:inline}.main-content{padding:28px 18px 42px}.topbar{padding:13px 18px}.page-heading h2{font-size:36px}.hero-story{min-height:350px}.hero-copy h3{font-size:40px}}
+@media(max-width:480px){.brand h1{font-size:18px}.brand-mark{width:36px;height:36px}.nav-item{padding:9px 11px;font-size:11px}.page-heading h2{font-size:32px}.hero-copy h3{font-size:34px}.stat-value{font-size:24px}.panel-heading h3,.next-step h3,.empty-state h3{font-size:19px}}

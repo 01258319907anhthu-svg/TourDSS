@@ -1,0 +1,4 @@
+/* Stable Vietnamese glyph rendering without relying on remote font availability */
+html{font-language-override:normal;text-rendering:optimizeLegibility}
+body,.app-layout,button,input,select,textarea{font-family:"Segoe UI",Arial,"Helvetica Neue",sans-serif;font-synthesis:none}
+.brand h1,.page-heading h2,.panel-heading h3,.next-step h3,.empty-state h3,.hero-copy h3,.recommendation-card h3,.package-body h3,.simulation-result h3{font-family:"Segoe UI",Arial,sans-serif;font-weight:700;letter-spacing:-.03em}
