@@ -1,19 +1,23 @@
 import App from "../src/App.jsx";
 import Login from "./pages/Login.jsx";
-
+import SettingsPage from "../src/SettingsPage.jsx";
 const routePages = {
+  "/phan-tich-thi-truong": "Phân tích thị trường",
   "/tong-quan": "Tổng quan",
-  "/du-lieu-thi-truong": "Dữ liệu & thị trường",
-  "/phan-tich-du-bao": "Phân tích & dự báo",
-  "/phan-tich-kinh-doanh": "Phân tích & dự báo",
-  "/du-bao-nhu-cau": "Phân tích & dự báo",
-  "/quyet-dinh-gia": "Ra quyết định giá",
-  "/phe-duyet-bao-cao": "Phê duyệt & báo cáo",
+  "/tong_quan": "Tổng quan",
+  "/cai-dat": "Dữ liệu và thiết lập",
+  "/quyet-dinh-gia": "Quyết định giá",
+  "/tour-va-goi-dich-vu": "Tour và gói dịch vụ",
+  "/du-lieu-va-thiet-lap": "Dữ liệu và thiết lập",
 };
 
 function FrontendEntry() {
   const path = window.location.pathname.toLowerCase().replace(/\/$/, "");
-  if (path === "/login") return <Login />;
+  if (path === "/login") {
+    window.history.replaceState({}, "", "/");
+  }
+  if (path === "" || path === "/login") return <Login />;
+  if (path === "/cai-dat") return <SettingsPage />;
   return <App initialPage={routePages[path] || "Tổng quan"} />;
 }
 

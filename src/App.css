@@ -186,7 +186,6 @@ body{background:radial-gradient(circle at 8% 0%,#fffaf2 0,transparent 34%),var(-
 /* Menu tài khoản mở từ avatar QL trên thanh trên cùng */
 .topbar{position:relative;z-index:100}.topbar-actions{position:relative;z-index:101}.user-menu-wrap{position:relative;z-index:102}.avatar-button{display:flex;align-items:center;gap:7px;padding:0;border:0;background:transparent;cursor:pointer}.avatar-button .avatar{display:grid}.avatar-caret{color:#a67f43;font-size:15px;line-height:1;transition:transform .2s}.avatar-button[aria-expanded=true] .avatar-caret{transform:rotate(180deg)}.account-menu{position:absolute;z-index:1000;top:calc(100% + 8px);right:0;width:285px;padding:13px;border:1px solid rgba(179,148,98,.22);border-radius:16px;background:#fffdf9;box-shadow:0 20px 45px rgba(37,55,50,.18);animation:account-menu-in .18s ease-out}.account-menu:before{content:"";position:absolute;top:-6px;right:25px;width:11px;height:11px;border-top:1px solid rgba(179,148,98,.22);border-left:1px solid rgba(179,148,98,.22);background:#fffdf9;transform:rotate(45deg)}.account-menu-head{position:relative;display:flex;align-items:center;gap:10px;padding:5px 5px 14px;border-bottom:1px solid #eee7dc}.account-menu-head strong,.account-menu-head small{display:block}.account-menu-head strong{color:#203c3a;font-size:12px}.account-menu-head small{margin-top:4px;color:#9a9d95;font-size:10px}.large-avatar{flex:0 0 38px!important;width:38px!important;height:38px!important}.account-role{display:grid;gap:4px;padding:14px 5px}.account-role span{color:#ae8b57;font-size:9px;font-weight:800;letter-spacing:.13em}.account-role b{color:#304c45;font-size:12px}.account-role small{color:#89958e;font-size:10px;line-height:1.5}.account-menu-links{display:grid;gap:4px;padding:8px 0;border-top:1px solid #eee7dc;border-bottom:1px solid #eee7dc}.account-menu-links button{padding:9px 7px;border:0;border-radius:8px;background:transparent;color:#566761;text-align:left;font:inherit;font-size:11px;cursor:pointer}.account-menu-links button:hover{background:#f4efe5;color:#294e45}.logout-button{width:100%;margin-top:11px;padding:10px 8px;border:1px solid #ecd4cb;border-radius:9px;background:#fff7f4;color:#bb6049;font:inherit;font-size:11px;font-weight:700;text-align:left;cursor:pointer}.logout-button:hover{background:#fce9e2}@keyframes account-menu-in{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
 .topbar-actions{position:absolute;top:-60px;right:46px}
-.avatar-button:before{content:"Quản trị viên";display:block;color:#304c45;font-size:11px;font-weight:800;letter-spacing:.01em;white-space:nowrap}
 @media(max-width:700px){.account-menu{right:-5px;width:270px}.avatar-caret{display:none}}
 body,button,input,select,textarea{font-family:'Be Vietnam Pro','Segoe UI',Arial,sans-serif}
 .brand h1,.hero-copy h3,.page-heading h2,.panel-heading h3,.next-step h3,.empty-state h3,.recommendation-banner h3,.recommendation-card h3,.simulation-result h3,.package-body h3,.visual-banner h3{font-family:'Be Vietnam Pro','Segoe UI',Arial,sans-serif;letter-spacing:-.7px}
@@ -215,3 +214,517 @@ body,button,input,select,textarea{font-family:'Be Vietnam Pro','Segoe UI',Arial,
 .brand-mark{color:#304d42;background:linear-gradient(145deg,#f7efdf,#e4c88e);border:1px solid #b39462;box-shadow:0 7px 16px rgba(142,108,53,.14)}.brand h1{color:#304d42}.brand h1 span{color:#b39462}
 /* Tên ảnh nền rút gọn */
 .hero-story{background-image:linear-gradient(90deg,rgba(20,38,39,.94) 0%,rgba(20,38,39,.76) 34%,rgba(20,38,39,.12) 80%),url('/images/anh-nen-khach-san.png')}
+
+.avatar-button{gap:8px;font-size:11px;line-height:16.5px}
+.avatar-button .avatar-name{font-family:'Be Vietnam Pro','Segoe UI',Arial,sans-serif;font-size:11px;font-weight:700;line-height:16.5px;color:#304c45;white-space:nowrap}
+.account-menu .account-role{display:none}
+.app-layout.menu-open .topbar{z-index:auto}
+.app-layout.menu-open .topbar-actions{z-index:700}
+.app-layout.menu-open .topbar-actions{position:fixed;top:-106px;right:24px;z-index:2000}
+.app-layout.menu-open .secondary-menu{z-index:600}
+.app-layout.menu-open .secondary-menu{top:68px}
+.app-layout.menu-open .secondary-menu{position:fixed;top:80px;left:18px;width:245px;z-index:1000;background:#fffdf8;border:1px solid #e8dfd1;border-radius:16px;box-shadow:0 18px 36px rgba(29,53,48,.14)}
+.app-layout.menu-open .menu-toggle{position:relative;z-index:2001}
+.breadcrumb{display:none}
+.topbar{height:0;min-height:0;padding:0;border-bottom:0;background:transparent}
+.topbar-actions{position:fixed;top:-106px;right:24px;z-index:2000}
+.app-layout{position:relative}
+.topbar-actions,.app-layout.menu-open .topbar-actions{position:absolute;top:15px;right:24px;z-index:2000}
+.topbar{position:absolute;top:0;left:0;right:0}
+.sidebar{z-index:100}
+.topbar{z-index:500}
+.app-layout.menu-open .sidebar{z-index:100}
+.app-layout.menu-open .topbar{z-index:500}
+.avatar-button .avatar-caret{font-size:13px;line-height:1}
+
+.dashboard-main,
+.dashboard-actions {
+  display: none;
+}
+
+.market-filters {
+  grid-template-columns: minmax(190px, 1.35fr) repeat(3, minmax(150px, 1fr)) auto;
+  align-items: end;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(191, 165, 119, .28);
+  background: linear-gradient(135deg, #fffdf8, #f4eee4);
+  box-shadow: 0 12px 28px rgba(42, 58, 54, .07);
+}
+
+.market-filters > div {
+  display: grid;
+  gap: 5px;
+  padding: 0 8px 4px 2px;
+}
+
+.market-filters > div strong {
+  color: #173634;
+  font-size: 17px;
+}
+
+.market-filters label {
+  display: grid;
+  gap: 7px;
+  color: #6d756f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.market-filters select {
+  min-height: 42px;
+  border: 1px solid #ddd3c4;
+  border-radius: 10px;
+  background: #fffefa;
+  color: #173634;
+  font-weight: 600;
+}
+
+.market-filters .primary-button {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+.market-action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.market-secondary-button {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #d8c8ad;
+  border-radius: 10px;
+  background: #fffdf8;
+  color: #6e5b3d;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.market-secondary-button:hover {
+  background: #f1dfb7;
+  color: #173634;
+}
+
+.booking-signals-panel {
+  margin-top: 18px;
+}
+
+.booking-signal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.booking-signal-grid > div {
+  padding: 14px;
+  border: 1px solid #e8ddcc;
+  border-radius: 12px;
+  background: #fffdf9;
+}
+
+.booking-signal-grid h4 {
+  margin: 0 0 8px;
+  color: #173634;
+  font-size: 12px;
+}
+
+.booking-signal-grid p {
+  display: grid;
+  grid-template-columns: 70px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+  padding: 9px 0;
+  border-bottom: 1px solid #eee8dc;
+  font-size: 11px;
+}
+
+.booking-signal-grid p:last-child {
+  border-bottom: 0;
+}
+
+.booking-signal-grid p b {
+  color: #173634;
+}
+
+.booking-signal-grid p span {
+  color: #7c8780;
+}
+
+.booking-signal-grid p strong {
+  color: #b39462;
+}
+
+.market-kpis {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.market-kpis .stat-card {
+  min-height: 142px;
+}
+
+.market-analysis-grid {
+  align-items: stretch;
+  gap: 18px;
+}
+
+.market-analysis-grid .panel {
+  min-height: 320px;
+}
+
+.market-analysis-grid .signal-summary {
+  display: grid;
+  gap: 18px;
+  padding-top: 12px;
+  background: transparent;
+}
+
+.market-analysis-grid .signal-number {
+  margin: 0;
+  color: #b39462;
+}
+
+.market-analysis-grid .signal-number small {
+  color: #7c8780;
+}
+
+.market-analysis-grid .signal-summary p {
+  max-width: 44ch;
+  color: #67736d;
+  line-height: 1.65;
+}
+
+.forecast-highlight {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 22px;
+  padding: 22px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f1e3bd, #e0c488);
+  color: #173634;
+}
+
+.forecast-highlight strong {
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 44px;
+  line-height: 1;
+}
+
+.forecast-highlight span {
+  color: #5d685f;
+  font-size: 13px;
+}
+
+.forecast-highlight b {
+  margin-top: 8px;
+  color: #173634;
+  font-size: 13px;
+}
+
+@media (max-width: 980px) {
+  .market-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .market-filters > div,
+  .market-filters .market-action-buttons {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 640px) {
+  .market-filters,
+  .market-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .market-filters > div,
+  .market-filters .market-action-buttons {
+    grid-column: auto;
+  }
+
+  .booking-signal-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pricing-decision-grid,
+.pending-panel,
+.approved-price-panel,
+.pricing-actions {
+  font-family: 'Be Vietnam Pro', 'Segoe UI', Arial, sans-serif;
+}
+
+.price-options-panel {
+  margin-bottom: 18px;
+}
+
+.hub-page:has(>.price-options-panel) {
+  display: flex;
+  flex-direction: column;
+}
+
+.hub-page:has(>.price-options-panel) > .app-page-heading { order: 1; }
+.hub-page:has(>.price-options-panel) > .notice-banner { order: 2; }
+.hub-page:has(>.price-options-panel) > .price-options-panel { order: 3; }
+.hub-page:has(>.price-options-panel) > .pricing-actions { order: 4; }
+.hub-page:has(>.price-options-panel) > .pending-panel { order: 5; }
+.hub-page:has(>.price-options-panel) > .pricing-decision-grid { order: 6; }
+.hub-page:has(>.price-options-panel) > .approved-price-panel { order: 7; }
+
+.price-option-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.price-option-card {
+  padding: 16px;
+  border: 1px solid #e8e0d3;
+  border-radius: 13px;
+  background: #fffdf9;
+}
+
+.price-option-card.selected {
+  border-color: #b39462;
+  background: #fffaf0;
+  box-shadow: inset 0 0 0 1px rgba(179, 148, 98, .16);
+}
+
+.price-option-head,
+.price-option-metrics {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.price-option-head strong {
+  color: #173634;
+  font-size: 12px;
+}
+
+.price-option-card > b {
+  display: block;
+  margin: 17px 0 13px;
+  color: #b39462;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 25px;
+}
+
+.price-option-metrics {
+  justify-content: flex-start;
+  gap: 24px;
+}
+
+.price-option-metrics span {
+  display: grid;
+  gap: 4px;
+}
+
+.price-option-metrics small {
+  color: #8b948f;
+  font-size: 10px;
+}
+
+.price-option-metrics strong {
+  color: #3e7854;
+  font-size: 14px;
+}
+
+.price-option-card p {
+  min-height: 32px;
+  margin: 15px 0 0;
+  color: #77827d;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.pricing-workflow-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.pricing-workflow-actions button {
+  padding: 9px 12px;
+  border: 1px solid #ded4c4;
+  border-radius: 8px;
+  background: #fff;
+  color: #536762;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pricing-workflow-actions button:hover {
+  border-color: #b39462;
+  background: #fff8e9;
+}
+
+.pricing-workflow-actions .primary-button {
+  border-color: #173634;
+  color: #fff;
+  background: #173634;
+}
+
+@media (max-width: 900px) {
+  .price-option-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hub-page > .pricing-actions {
+  grid-template-columns: 1fr auto;
+}
+
+.pricing-decision-grid h3,
+.pending-panel h3,
+.approved-price-panel h3,
+.pricing-actions strong,
+.pricing-decision-grid button,
+.pending-panel button,
+.approved-price-panel button {
+  font-family: 'Be Vietnam Pro', 'Segoe UI', Arial, sans-serif;
+  letter-spacing: 0;
+}
+
+.pricing-decision-grid .whatif-result-number,
+.pricing-decision-grid .whatif-result-grid strong {
+  font-family: 'Manrope', 'Be Vietnam Pro', 'Segoe UI', Arial, sans-serif;
+}
+
+.package-opportunity-list {
+  display: grid;
+  gap: 14px;
+}
+
+.package-opportunity-list article {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid #e8ddcc;
+  border-radius: 14px;
+  background: #fffdf9;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.package-opportunity-list article:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(42, 58, 54, .08);
+}
+
+.combo-image {
+  min-height: 82px;
+  border-radius: 10px;
+  background-size: cover;
+  background-repeat: no-repeat;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .28);
+}
+
+.combo-copy {
+  display: grid;
+  gap: 5px;
+}
+
+.combo-copy strong {
+  color: #173634;
+  font-size: 15px;
+}
+
+.combo-copy span {
+  color: #8d806d;
+  font-size: 11px;
+}
+
+.combo-copy b {
+  color: #a27d43;
+  font-size: 13px;
+}
+
+.package-opportunity-list article > .ghost-button {
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .package-opportunity-list article {
+    grid-template-columns: 88px minmax(0, 1fr);
+  }
+
+  .package-opportunity-list article > .combo-copy {
+    grid-column: 2;
+  }
+
+  .package-opportunity-list article > .combo-copy .ghost-button {
+    justify-self: start;
+  }
+}
+
+.package-opportunity-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.package-opportunity-list article {
+  display: flex;
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.package-opportunity-list .combo-image {
+  min-height: 190px;
+  width: 100%;
+  background-position: center;
+}
+
+.package-opportunity-list .combo-copy {
+  flex: 1;
+  padding: 4px 2px 0;
+}
+
+.dashboard-export-button {
+  min-height: 42px;
+  padding: 0 15px;
+  border: 1px solid #b39462;
+  border-radius: 10px;
+  background: #fffaf1;
+  color: #856638;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.dashboard-export-button:hover {
+  background: #f1dfb7;
+  color: #173634;
+}
+
+.package-opportunity-list article > .combo-copy .ghost-button {
+  align-self: flex-start;
+  margin-top: 8px;
+}
+
+@media (max-width: 960px) {
+  .package-opportunity-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .package-opportunity-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tour-price-simulator{margin-bottom:18px}.tour-simulator-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.tour-simulator-grid label{display:grid;gap:7px;color:#6d756f;font-size:11px;font-weight:700}.tour-simulator-grid input{width:100%;min-height:40px;padding:0 11px;border:1px solid #ddd3c4;border-radius:10px;background:#fffefa;color:#173634;font:600 12px 'Be Vietnam Pro','Segoe UI',Arial,sans-serif}.tour-price-simulator>.primary-button{min-height:40px}@media(max-width:850px){.tour-simulator-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.tour-simulator-grid{grid-template-columns:1fr}}
+.config-reference-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px}.config-reference-card{padding:18px}.config-reference-card h3{margin:7px 0;color:#173634;font-size:16px}.config-reference-card p{min-height:34px;margin:0 0 12px;color:#7c8780;font-size:11px;line-height:1.55}.config-reference-card .ghost-button{padding:0;border:0;color:#9b7545;background:transparent;font-size:11px;font-weight:700}.config-reference-card .ghost-button:hover{color:#173634}@media(max-width:850px){.config-reference-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.config-reference-grid{grid-template-columns:1fr}}

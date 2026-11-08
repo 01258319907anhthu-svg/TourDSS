@@ -39,7 +39,8 @@ const channelProfiles = {
 };
 
 const accounts = [
-  { username: "admin", password: "TourDSS@123", fullName: "Quản trị viên TourDSS", role: "admin", roleName: "Quản trị viên", initials: "AD" },
+  { username: "admin", email: "admin@tourdss.vn", password: "TourDSS@123", fullName: "Quản trị viên TourDSS", role: "admin", roleName: "Quản trị viên", initials: "AD" },
+  { username: "doanh_thu", email: "doanh.thu@tourdss.vn", password: "TourDSS@123", fullName: "Quản lý doanh thu", role: "revenue_manager", roleName: "Quản lý doanh thu", initials: "DT" },
 ];
 
 function sendJson(response, statusCode, data) {
