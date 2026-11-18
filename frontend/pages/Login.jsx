@@ -21,6 +21,7 @@ export default function Login() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || "Tài khoản hoặc mật khẩu không đúng.");
       localStorage.setItem("tourdss_user", JSON.stringify(result.user));
+      localStorage.setItem("tourdss_active_role", result.user.role);
       window.location.href = "/tong_quan";
     } catch (loginError) {
       setError(loginError.message || "Không thể kết nối máy chủ đăng nhập.");

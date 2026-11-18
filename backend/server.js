@@ -41,7 +41,32 @@ const channelProfiles = {
 const accounts = [
   { username: "admin", email: "admin@tourdss.vn", password: "TourDSS@123", fullName: "Quản trị viên TourDSS", role: "admin", roleName: "Quản trị viên", initials: "AD" },
   { username: "doanh_thu", email: "doanh.thu@tourdss.vn", password: "TourDSS@123", fullName: "Quản lý doanh thu", role: "revenue_manager", roleName: "Quản lý doanh thu", initials: "DT" },
+  { username: "demo", email: "demo@tourdss.vn", password: "TourDSS@123", fullName: "Tài khoản demo TourDSS", role: "admin", roleName: "Quản trị viên", initials: "DM", isDemo: true },
 ];
+
+const demoRoles = [
+  { role: "admin", roleName: "Quản trị viên" },
+  { role: "revenue_analyst", roleName: "Chuyên viên phân tích doanh thu" },
+  { role: "revenue_manager_lead", roleName: "Quản lý doanh thu" },
+  { role: "sales_director", roleName: "Giám đốc Kinh doanh" },
+];
+
+let proposals = [
+  { id: 1, name: "Tăng giá Deluxe cuối tuần", price: "1.296.000 đ", impact: "+4,8M", status: "Chờ duyệt", createdBy: "Dữ liệu mẫu" },
+  { id: 2, name: "Giữ giá Standard giữa tuần", price: "800.000 đ", impact: "+0,6M", status: "Chờ duyệt", createdBy: "Dữ liệu mẫu" },
+];
+
+function roleFromRequest(request) {
+  return request.headers["x-tourdss-role"] || "admin";
+}
+
+function canCreateProposal(role) {
+  return ["revenue_manager", "revenue_manager_lead"].includes(role);
+}
+
+function canApproveProposal(role) {
+  return role === "sales_director";
+}
 
 function sendJson(response, statusCode, data) {
   response.writeHead(statusCode, {
@@ -146,16 +171,80 @@ const server = http.createServer(async (request, response) => {
   if (request.method === "POST" && request.url === "/api/login") {
     try {
       const body = JSON.parse(await readBody(request));
-      const account = accounts.find((item) => item.username === body.username && item.password === body.password);
+      const account = accounts.find((item) => (item.username === body.username || item.email === body.username) && item.password === body.password);
       if (!account) {
         sendJson(response, 401, { message: "Tài khoản hoặc mật khẩu không đúng." });
         return;
       }
       const { password: _password, ...user } = account;
+      if (user.isDemo) user.allowedRoles = demoRoles;
       sendJson(response, 200, { user });
     } catch {
       sendJson(response, 400, { message: "Dữ liệu đăng nhập không hợp lệ." });
     }
+    return;
+  }
+
+  if (request.method === "GET" && request.url === "/api/proposals") {
+    sendJson(response, 200, { proposals });
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/api/proposals") {
+    const role = roleFromRequest(request);
+    if (!canCreateProposal(role)) {
+      sendJson(response, 403, { message: "Vai trò hiện tại không được tạo đề xuất giá." });
+      return;
+    }
+    try {
+      const body = JSON.parse(await readBody(request));
+      const proposal = {
+        id: Date.now(),
+        name: body.name || "Đề xuất giá mới",
+        price: body.price || "1.296.000 đ",
+        impact: body.impact || "+4,8M",
+        room: body.room || "Deluxe Ocean View",
+        channel: body.channel || "Website trực tiếp",
+        period: body.period || "7 ngày tới",
+        proposedPrice: body.proposedPrice || body.price || "1.296.000 đ",
+        score: body.score || 86,
+        ranking: body.ranking || "1/3",
+        reason: body.reason || "Cân bằng công suất và biên lợi nhuận.",
+        revpar: body.revpar || "1,06M",
+        expectedProfit: body.expectedProfit || "+4,8M",
+        constraints: body.constraints || [],
+        status: "Chờ duyệt",
+        createdBy: body.createdBy || role,
+      };
+      proposals = [proposal, ...proposals];
+      sendJson(response, 201, { proposal });
+    } catch {
+      sendJson(response, 400, { message: "Dữ liệu đề xuất không hợp lệ." });
+    }
+    return;
+  }
+
+  if (request.method === "PATCH" && request.url.startsWith("/api/proposals/")) {
+    const role = roleFromRequest(request);
+    if (!canApproveProposal(role)) {
+      sendJson(response, 403, { message: "Vai trò hiện tại không được xử lý phiếu giá." });
+      return;
+    }
+    const id = Number(request.url.split("/").pop());
+    const proposal = proposals.find((item) => item.id === id);
+    if (!proposal) {
+      sendJson(response, 404, { message: "Không tìm thấy đề xuất giá." });
+      return;
+    }
+    let body = {};
+    try { body = JSON.parse(await readBody(request)); } catch { body = {}; }
+    const action = body.action || "approve";
+    const statuses = { approve: "Đã duyệt", edit: "Cần chỉnh sửa", reject: "Đã từ chối" };
+    proposal.status = statuses[action] || statuses.approve;
+    proposal.processedBy = body.processedBy || role;
+    proposal.processedAt = new Date().toISOString();
+    proposal.note = body.note || "";
+    sendJson(response, 200, { proposal });
     return;
   }
 

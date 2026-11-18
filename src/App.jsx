@@ -2,30 +2,55 @@ import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import "./image-picker.css";
 import UserMenu from "./UserMenu.jsx";
+import * as XLSX from "xlsx";
 
-const menus = ["Tổng quan", "Phân tích thị trường", "Quyết định giá", "Tour và gói dịch vụ", "Dữ liệu và thiết lập"];
-const primaryMenus = ["Tổng quan"];
-const coreSecondaryMenus = menus.filter((menu) => menu !== "Tổng quan");
+const menus = ["Tổng quan KPI", "Phân tích thị trường", "Dự báo & pick-up", "Quyết định giá", "Mô phỏng & gói dịch vụ", "Dữ liệu và tham số", "Quản trị hệ thống"];
+const primaryMenus = ["Tổng quan KPI"];
+const coreSecondaryMenus = menus.filter((menu) => menu !== "Tổng quan KPI");
 const icons = ["▦", "◫", "◒", "⌁", "✦", "◇", "▤", "⚙"];
 const rolePermissions = {
-  admin: ["Tổng quan", "Phân tích thị trường", "Quyết định giá", "Tour và gói dịch vụ"],
-  revenue_manager: menus,
+  admin: menus.filter((menu) => !["Tổng quan KPI", "Phân tích thị trường", "Dự báo & pick-up", "Quyết định giá", "Dữ liệu và tham số"].includes(menu)),
+  revenue_analyst: ["Tổng quan KPI", "Phân tích thị trường", "Dự báo & pick-up", "Dữ liệu và tham số"],
+  revenue_manager_lead: ["Tổng quan KPI", "Phân tích thị trường", "Dự báo & pick-up", "Quyết định giá", "Mô phỏng & gói dịch vụ", "Dữ liệu và tham số"],
+  sales_director: menus.filter((menu) => menu !== "Quản trị hệ thống" && menu !== "Dữ liệu và tham số"),
+  revenue_manager: menus.filter((menu) => menu !== "Quản trị hệ thống"),
+};
+const roleDisplayNames = {
+  revenue_analyst: "Chuyên viên phân tích",
+  revenue_manager_lead: "Quản lý doanh thu",
 };
 const pagePaths = {
   "Phân tích thị trường": "/phan-tich-thi-truong",
-  "Tổng quan": "/tong-quan",
+  "Dự báo & pick-up": "/du-bao-nhu-cau",
+  "Tổng quan KPI": "/tong-quan",
   "Quyết định giá": "/quyet-dinh-gia",
-  "Tour và gói dịch vụ": "/tour-va-goi-dich-vu",
-  "Dữ liệu và thiết lập": "/du-lieu-va-thiet-lap",
+  "Mô phỏng & gói dịch vụ": "/mo-phong-&-goi-dich-vu",
+  "Dữ liệu và tham số": "/du-lieu-va-tham-so",
+  "Quản trị hệ thống": "/quan-tri",
 };
 
-function App({ initialPage = "Tổng quan" }) {
+function App({ initialPage = "Tổng quan KPI" }) {
   const [currentUser] = useState(() => { try { return JSON.parse(localStorage.getItem("tourdss_user")) || null; } catch { return null; } });
-  const allowedMenus = rolePermissions[currentUser?.role] || rolePermissions.admin;
-  const firstPage = allowedMenus.includes(initialPage) ? initialPage : allowedMenus[0];
+  const roleOptions = (currentUser?.allowedRoles || []).map((option) => ({ ...option, roleName: roleDisplayNames[option.role] || option.roleName }));
+  const [activeRole, setActiveRole] = useState(() => localStorage.getItem("tourdss_active_role") || currentUser?.role || "admin");
+  const currentRoleOption = roleOptions.find((option) => option.role === activeRole) || { role: currentUser?.role || "admin", roleName: currentUser?.roleName || "Quản trị viên" };
+  const currentRole = { ...currentRoleOption, roleName: roleDisplayNames[currentRoleOption.role] || currentRoleOption.roleName };
+  const allowedMenus = rolePermissions[currentRole.role] || rolePermissions.admin;
+  const initialPathPage = { "/": "Tổng quan KPI", "/tong-quan": "Tổng quan KPI", "/phan-tich-thi-truong": "Phân tích thị trường", "/du-bao-nhu-cau": "Dự báo & pick-up", "/quyet-dinh-gia": "Quyết định giá", "/tour-va-goi-dich-vu": "Mô phỏng & gói dịch vụ", "/mo-phong-&-goi-dich-vu": "Mô phỏng & gói dịch vụ", "/du-lieu-va-thiet-lap": "Dữ liệu và tham số", "/du-lieu-va-tham-so": "Dữ liệu và tham số", "/quan-tri": "Quản trị hệ thống" }[window.location.pathname.replace(/\/$/, "") || "/"];
+  const firstPage = allowedMenus.includes(initialPathPage) ? initialPathPage : (allowedMenus.includes(initialPage) ? initialPage : allowedMenus[0]);
   const [activePage, setActivePage] = useState(firstPage);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
+  useEffect(() => { document.title = `TourDSS · ${activePage}`; }, [activePage]);
+  const changeRole = (role) => {
+    if (!currentUser?.isDemo || !roleOptions.some((option) => option.role === role)) return;
+    localStorage.setItem("tourdss_active_role", role);
+    setActiveRole(role);
+    setIsAccountOpen(false);
+  };
+  useEffect(() => {
+    if (!allowedMenus.includes(activePage)) setActivePage(allowedMenus[0]);
+  }, [activeRole]);
   useEffect(() => {
     const handleSettingsClick = (event) => {
       if (event.target.closest(".menu-toggle")) setIsAccountOpen(false);
@@ -40,20 +65,23 @@ function App({ initialPage = "Tổng quan" }) {
   }, []);
   useEffect(() => {
     const pageByPath = {
-      "/": "Tổng quan",
-      "/tong-quan": "Tổng quan",
-      "/tong_quan": "Tổng quan",
+      "/": "Tổng quan KPI",
+      "/tong-quan": "Tổng quan KPI",
+      "/tong_quan": "Tổng quan KPI",
       "/phan-tich-thi-truong": "Phân tích thị trường",
       "/du-lieu-thi-truong": "Phân tích thị trường",
       "/phan-tich-du-bao": "Phân tích thị trường",
       "/phan-tich-kinh-doanh": "Phân tích thị trường",
-      "/du-bao-nhu-cau": "Phân tích thị trường",
+      "/du-bao-nhu-cau": "Dự báo & pick-up",
       "/quyet-dinh-gia": "Quyết định giá",
-      "/tour-va-goi-dich-vu": "Tour và gói dịch vụ",
-      "/phe-duyet-bao-cao": "Dữ liệu và thiết lập",
-      "/du-lieu-va-thiet-lap": "Dữ liệu và thiết lập",
-      "/cai-dat": "Dữ liệu và thiết lập",
-      "/cau-hinh": "Dữ liệu và thiết lập",
+      "/tour-va-goi-dich-vu": "Mô phỏng & gói dịch vụ",
+      "/mo-phong-&-goi-dich-vu": "Mô phỏng & gói dịch vụ",
+      "/phe-duyet-bao-cao": "Dữ liệu và tham số",
+      "/du-lieu-va-thiet-lap": "Dữ liệu và tham số",
+      "/du-lieu-va-tham-so": "Dữ liệu và tham số",
+      "/quan-tri": "Quản trị hệ thống",
+      "/cai-dat": "Dữ liệu và tham số",
+      "/cau-hinh": "Dữ liệu và tham số",
     };
     const syncPage = () => {
       const page = pageByPath[window.location.pathname.replace(/\/$/, "") || "/"];
@@ -65,9 +93,9 @@ function App({ initialPage = "Tổng quan" }) {
   const visiblePrimaryMenus = [activePage].filter((menu) => allowedMenus.includes(menu));
   const visibleSecondaryMenus = allowedMenus.filter((menu) => menu !== activePage);
   const userInitials = currentUser?.initials || "AD";
-  const userRole = currentUser?.roleName || "Quản trị viên";
+  const userRole = currentRole.roleName;
   const userName = currentUser?.fullName || "Quản trị viên TourDSS";
-  const selectPage = (page) => { const pageAliases = { "Dữ liệu đầu vào": "Dữ liệu và thiết lập", "Giá đối thủ & sự kiện": "Phân tích thị trường", "Phân tích kinh doanh": "Phân tích thị trường", "Dự báo nhu cầu": "Phân tích thị trường", "Đề xuất giá": "Quyết định giá", "Mô phỏng What-if": "Quyết định giá", "Cấu hình": "Dữ liệu và thiết lập", "Phê duyệt & báo cáo": "Dữ liệu và thiết lập" }; const nextPage = pageAliases[page] || page; if (!allowedMenus.includes(nextPage)) return; setActivePage(nextPage); window.history.pushState({}, "", pagePaths[nextPage] || "/"); setIsMenuOpen(false); setIsAccountOpen(false); };
+  const selectPage = (page) => { const pageAliases = { "Dữ liệu đầu vào": "Dữ liệu và tham số", "Giá đối thủ & sự kiện": "Phân tích thị trường", "Phân tích kinh doanh": "Phân tích thị trường", "Dự báo nhu cầu": "Dự báo & pick-up", "Đề xuất giá": "Quyết định giá", "Mô phỏng What-if": "Quyết định giá", "Cấu hình": "Dữ liệu và tham số", "Phê duyệt & báo cáo": "Dữ liệu và tham số" }; const nextPage = pageAliases[page] || page; if (!allowedMenus.includes(nextPage)) return; setActivePage(nextPage); window.history.pushState({}, "", pagePaths[nextPage] || "/"); setIsMenuOpen(false); setIsAccountOpen(false); };
 
   return <div className={isMenuOpen ? "app-layout menu-open" : "app-layout"}>
     <aside className="sidebar">
@@ -77,8 +105,8 @@ function App({ initialPage = "Tổng quan" }) {
       {isMenuOpen && <div className="secondary-menu"><div className="secondary-title">HỖ TRỢ RA QUYẾT ĐỊNH</div>{visibleSecondaryMenus.map((menu) => <button key={menu} type="button" className={activePage === menu ? "secondary-item active" : "secondary-item"} onClick={() => selectPage(menu)}><span className="nav-icon">{icons[menus.indexOf(menu)]}</span><span>{menu}</span></button>)}</div>}
     </aside>
     <div className="main-layout">
-      <header className="topbar"><div className="breadcrumb"><span>TourDSS</span><b>·</b><strong>{activePage}</strong></div><div className="topbar-actions"><UserMenu user={currentUser} roleName={userRole} userName={userName} canAccessSettings isOpen={isAccountOpen} onToggle={() => { setIsAccountOpen((open) => !open); setIsMenuOpen(false); }} onSettings={() => { sessionStorage.setItem("tourdss_settings_return", window.location.pathname); setIsAccountOpen(false); window.location.href = "/cai-dat"; }} onLogout={() => { localStorage.removeItem("tourdss_user"); window.location.href = "/login"; }} /></div></header>
-      <main className="main-content">{renderPage(activePage, selectPage)}</main>
+      <header className="topbar"><div className="breadcrumb"><span>TourDSS</span><b>·</b><strong>{activePage}</strong></div><div className="topbar-actions"><UserMenu user={currentUser} roleName={userRole} userName={userName} roleOptions={roleOptions} activeRole={currentRole.role} onRoleChange={changeRole} canAccessSettings isOpen={isAccountOpen} onToggle={() => { setIsAccountOpen((open) => !open); setIsMenuOpen(false); }} onSettings={() => { sessionStorage.setItem("tourdss_settings_return", window.location.pathname); setIsAccountOpen(false); window.location.href = "/cai-dat"; }} onLogout={() => { localStorage.removeItem("tourdss_user"); localStorage.removeItem("tourdss_active_role"); window.location.href = "/login"; }} /></div></header>
+      <main className="main-content">{renderPage(activePage, selectPage, currentRole, currentUser)}</main>
     </div>
   </div>;
 }
@@ -120,9 +148,235 @@ function Approval() { return <><PageHeader eyebrow="APPROVAL & REPORTS" title="M
 
 function Config() { return <><PageHeader eyebrow="SETTINGS & ACCESS" title="Cấu hình để đội ngũ đi cùng một hướng." description="Thiết lập quy tắc giá và quyền truy cập cho tài khoản quản trị." action={<Button>Lưu thay đổi</Button>} /><VisualBanner image="anh-nen-khach-san.png" eyebrow="GUARDRAILS · ADMIN · CONTROL" title="Một tài khoản, toàn quyền kiểm soát." description="Thiết lập ngưỡng giá, trọng số và quyền truy cập tập trung cho admin." metric="1" label="tài khoản quản trị" /><VisualGallery /><div className="content-grid"><section className="panel"><SectionTitle kicker="PRICING GUARDRAILS" title="Ngưỡng ra quyết định" /><div className="form-grid"><label>Giá sàn Standard<input defaultValue="650000" type="number" /></label><label>Giá trần Suite<input defaultValue="3500000" type="number" /></label><label>Trọng số công suất<input defaultValue="40" type="number" /></label><label>Trọng số đối thủ<input defaultValue="25" type="number" /></label><label>Trọng số chi phí<input defaultValue="20" type="number" /></label><label>Trọng số sự kiện<input defaultValue="15" type="number" /></label></div><div className="toggle-list"><label><input type="checkbox" defaultChecked /> Cảnh báo khi giá vượt ngưỡng</label><label><input type="checkbox" defaultChecked /> Bắt buộc phê duyệt khi thay đổi trên 10%</label><label><input type="checkbox" /> Tự động áp dụng đề xuất độ tin cậy cao</label></div></section><section className="panel"><SectionTitle kicker="ADMIN ACCOUNT" title="Tài khoản hệ thống" /><div className="role-list"><p><span className="role-avatar manager">AD</span><span><strong>Quản trị viên TourDSS</strong><small>admin</small></span><b>Toàn quyền vận hành</b></p></div></section></div></>; }
 
-function renderPage(page, selectPage) { if (page === "Tổng quan") return <DashboardOverview selectPage={selectPage} />; if (page === "Phân tích thị trường") return <AnalysisForecastHub />; if (page === "Quyết định giá") return <PricingDecisionHub />; if (page === "Tour và gói dịch vụ") return <TourPackageDashboard />; if (page === "Dữ liệu và thiết lập") return <DataMarketHub />; return <DashboardOverview selectPage={selectPage} />; }
+function ScenarioTourPackageHub({ currentRole = {} }) {
+  const [tab, setTab] = useState("Kịch bản giá");
+  const canManageScenarios = ["revenue_manager", "revenue_manager_lead"].includes(currentRole.role);
+  const canViewScenarioResults = currentRole.role === "sales_director";
+  return <div className="hub-page scenario-hub"><PageHeader eyebrow="SCENARIO · TOUR · BUNDLE" title={<>Mô phỏng, <em>tour và gói.</em></>} description="Thử kịch bản giá, tính hòa vốn tour và đọc căn cứ gợi ý dịch vụ trong cùng một màn hình." /><div className="scenario-tabs" role="tablist">{["Kịch bản giá", "Định giá tour", "Gói dịch vụ"].map((item) => <button key={item} type="button" role="tab" aria-selected={tab === item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>{item}</button>)}</div>{tab === "Kịch bản giá" ? <ScenarioPriceTab canManageScenarios={canManageScenarios} canViewScenarioResults={canViewScenarioResults} /> : tab === "Định giá tour" ? <ScenarioTourTab canManageScenarios={canManageScenarios} /> : <ScenarioPackageTab canManageScenarios={canManageScenarios} />}</div>;
+}
 
-function AnalysisForecastHub() { return <div className="hub-page"><MarketOverviewDashboard /></div>; }
+function ScenarioPriceTab({ canManageScenarios, canViewScenarioResults }) {
+  const [delta, setDelta] = useState(8); const [capacity, setCapacity] = useState(80); const [message, setMessage] = useState("");
+  const currentAdr = 1200000; const adr = Math.round(currentAdr * (1 + delta / 100)); const occupancy = Math.max(48, Math.min(98, Math.round(75 - delta * .35 + (capacity - 80) * .12))); const revpar = Math.round(adr * occupancy / 100); const profit = Math.round((revpar * 0.44) / 1000) * 1000; const holdRevpar = Math.round(currentAdr * 75 / 100);
+  return <><section className="scenario-control-grid"><section className="panel"><SectionTitle kicker="WHAT-IF BUILDER" title="Thử tăng / giảm giá" description="Điều chỉnh giá và công suất để xem tác động so với phương án giữ giá." /><label className="whatif-range"><span>Thay đổi giá <b>{delta > 0 ? "+" : ""}{delta}%</b></span><input type="range" min="-15" max="20" value={delta} onChange={(event) => setDelta(Number(event.target.value))} /></label><label className="whatif-range"><span>Công suất phân bổ <b>{capacity}%</b></span><input type="range" min="50" max="100" value={capacity} onChange={(event) => setCapacity(Number(event.target.value))} /></label><div className="scenario-field-row"><label>Hạng phòng<select><option>Deluxe Ocean View</option><option>Standard Garden</option><option>Suite Premium</option></select></label><label>Giai đoạn<select><option>Cuối tuần 08–10/11</option><option>Toàn tháng 11</option></select></label></div>{canManageScenarios && <button className="primary-button" type="button" onClick={() => setMessage("Đã chạy lại kịch bản theo tham số mới.")}>▶ Chạy mô phỏng</button>}</section><section className="panel scenario-result-card" id="scenario-result-card"><SectionTitle kicker="SCENARIO RESULT" title={delta >= 0 ? `Kịch bản tăng giá ${delta}%` : `Kịch bản giảm giá ${Math.abs(delta)}%`} description="Các chỉ số dự kiến trong 7 ngày." /><div className="scenario-metric-grid"><span><small>ADR</small><strong>{adr.toLocaleString("vi-VN")} đ</strong></span><span><small>Công suất</small><strong>{occupancy}%</strong></span><span><small>RevPAR</small><strong>{revpar.toLocaleString("vi-VN")} đ</strong></span><span><small>Lợi nhuận</small><strong>+{(profit / 1000000).toFixed(1).replace(".", ",")}M</strong></span></div><div className="hold-compare"><span>Giữ giá: <b>{holdRevpar.toLocaleString("vi-VN")} đ RevPAR</b></span><span>Kịch bản: <b>{revpar.toLocaleString("vi-VN")} đ RevPAR</b></span></div></section></section>{(canManageScenarios || canViewScenarioResults) && <section className="scenario-actions"><span>Phương án đang tạo: <b>{delta >= 0 ? "Bảo vệ biên lợi nhuận" : "Kích cầu công suất"}</b></span>{canManageScenarios && <button type="button" onClick={() => setMessage("Đã chuyển kịch bản phù hợp thành đề xuất giá chờ duyệt.")}>↗ Chuyển thành đề xuất</button>}{canViewScenarioResults && <button type="button" onClick={() => document.getElementById("scenario-result-card")?.scrollIntoView({ behavior: "smooth", block: "center" })}>Xem kết quả kịch bản</button>}</section>}{message && <div className="notice-banner">✓ {message}</div>}<section className="panel"><SectionTitle kicker="SCENARIO COMPARISON" title="So sánh với phương án giữ giá" /><DataTable headers={["CHỈ SỐ", "GIỮ GIÁ", "KỊCH BẢN", "THAY ĐỔI"]} rows={[["ADR", "1.200.000 đ", `${adr.toLocaleString("vi-VN")} đ`, `${delta > 0 ? "+" : ""}${delta}%`],["Công suất", "75%", `${occupancy}%`, `${occupancy - 75 > 0 ? "+" : ""}${occupancy - 75} điểm %`],["RevPAR", `${holdRevpar.toLocaleString("vi-VN")} đ`, `${revpar.toLocaleString("vi-VN")} đ`, `${revpar - holdRevpar >= 0 ? "+" : "−"}${Math.abs(revpar - holdRevpar).toLocaleString("vi-VN")} đ`]]} /></section></>;
+}
+
+function BreakEvenChart({ fixed, variable, netPrice, expectedGuests, breakEven }) {
+  const maxGuests = Math.max(10, Math.ceil(Math.max(expectedGuests, breakEven || 0) * 1.15 / 10) * 10);
+  const plot = { left: 62, top: 16, width: 620, height: 178 };
+  const maxAmount = Math.max(netPrice * maxGuests, fixed + variable * maxGuests, 1);
+  const x = (guests) => plot.left + guests / maxGuests * plot.width;
+  const y = (amount) => plot.top + plot.height - amount / maxAmount * plot.height;
+  const exactBreakEven = breakEven === null ? null : fixed / (netPrice - variable);
+  const ticks = [1, .75, .5, .25, 0];
+
+  return <section className="panel break-even-chart-panel">
+    <SectionTitle kicker="TOUR BREAK-EVEN CHART" title="Biểu đồ hòa vốn" description="Điểm giao giữa doanh thu sau hoa hồng và tổng chi phí cho biết số khách cần đạt." />
+    <div className="break-even-chart">
+      <svg viewBox="0 0 720 228" role="img" aria-label={breakEven === null ? "Biểu đồ doanh thu và chi phí; tour chưa thể hòa vốn ở mức giá hiện tại." : `Biểu đồ hòa vốn, điểm giao tại khoảng ${breakEven} khách.`}>
+        {ticks.map((tick) => {
+          const tickY = y(maxAmount * tick);
+          return <g key={tick}>
+            <line x1={plot.left} y1={tickY} x2={plot.left + plot.width} y2={tickY} className="break-even-grid-line" />
+            <text x={plot.left - 9} y={tickY + 4} textAnchor="end" className="break-even-axis-label">{`${(maxAmount * tick / 1000000).toFixed(0)}M`}</text>
+          </g>;
+        })}
+        <line x1={plot.left} y1={plot.top} x2={plot.left} y2={plot.top + plot.height} className="break-even-axis-line" />
+        <line x1={plot.left} y1={plot.top + plot.height} x2={plot.left + plot.width} y2={plot.top + plot.height} className="break-even-axis-line" />
+        <path d={`M ${x(0)} ${y(0)} L ${x(maxGuests)} ${y(netPrice * maxGuests)}`} className="break-even-revenue-line" />
+        <path d={`M ${x(0)} ${y(fixed)} L ${x(maxGuests)} ${y(fixed + variable * maxGuests)}`} className="break-even-cost-line" />
+        {exactBreakEven !== null && <g>
+          <line x1={x(exactBreakEven)} y1={plot.top} x2={x(exactBreakEven)} y2={plot.top + plot.height} className="break-even-marker-line" />
+          <circle cx={x(exactBreakEven)} cy={y(netPrice * exactBreakEven)} r="5" className="break-even-marker" />
+        </g>}
+        {[0, Math.round(maxGuests / 2), maxGuests].map((guestCount) => <text key={guestCount} x={x(guestCount)} y={plot.top + plot.height + 20} textAnchor="middle" className="break-even-axis-label">{guestCount}</text>)}
+        <text x={plot.left + plot.width} y={plot.top + plot.height + 38} textAnchor="end" className="break-even-axis-title">Số khách</text>
+      </svg>
+      <div className="break-even-chart-legend"><span><i className="revenue-legend-dot" /> Doanh thu sau hoa hồng</span><span><i className="cost-legend-dot" /> Tổng chi phí</span><span><i className="break-even-legend-dot" /> Điểm hòa vốn</span></div>
+      <p className="break-even-chart-note">{breakEven === null ? "Giá ròng hiện không bù được chi phí mỗi khách, nên không có điểm hòa vốn." : `Hòa vốn ở ${breakEven} khách · Sản lượng dự kiến ${expectedGuests} khách.`}</p>
+    </div>
+  </section>;
+}
+
+function ScenarioTourTab({ canManageScenarios }) {
+  const [fixed, setFixed] = useState(42000000);
+  const [variable, setVariable] = useState(620000);
+  const [commission, setCommission] = useState(12);
+  const [price, setPrice] = useState(1200000);
+  const [guests, setGuests] = useState(82);
+  const [departureDate, setDepartureDate] = useState("2026-11-21");
+  const [message, setMessage] = useState("");
+  const netPrice = price * (1 - commission / 100);
+  const contribution = netPrice - variable;
+  const breakEven = contribution > 0 ? Math.ceil(fixed / contribution) : null;
+  const minPrice = Math.ceil((variable + fixed / Math.max(1, guests)) / Math.max(.01, 1 - commission / 100));
+  const profit = contribution * guests - fixed;
+  const breakEvenForPrice = (scenarioPrice) => {
+    const scenarioContribution = scenarioPrice * (1 - commission / 100) - variable;
+    return scenarioContribution > 0 ? `${Math.ceil(fixed / scenarioContribution)} khách` : "Không hòa vốn";
+  };
+  return <>
+    <section className="panel tour-trip-summary">
+      <img src="/images/combo-sunset.png" alt="Điểm đến tour đảo lúc hoàng hôn" />
+      <div className="tour-trip-info">
+        <span className="section-kicker">ĐIỂM ĐẾN · PHÚ QUỐC</span>
+        <h3>Tour đảo 1 ngày</h3>
+        <label>Ngày khởi hành<input type="date" value={departureDate} onChange={(event) => setDepartureDate(event.target.value)} /></label>
+      </div>
+    </section>
+    <BreakEvenChart fixed={fixed} variable={variable} netPrice={netPrice} expectedGuests={guests} breakEven={breakEven} />
+    <section className="panel tour-economics-panel"><SectionTitle kicker="TOUR BREAK-EVEN INPUTS" title="Thông số định giá tour" description="Cập nhật chi phí, hoa hồng, giá bán và số khách dự kiến để xem điểm hòa vốn." /><div className="tour-input-grid"><label>Chi phí cố định (đ)<input type="number" value={fixed} onChange={(event) => setFixed(Number(event.target.value) || 0)} /></label><label>Chi phí / khách (đ)<input type="number" value={variable} onChange={(event) => setVariable(Number(event.target.value) || 0)} /></label><label>Hoa hồng kênh (%)<input type="number" value={commission} onChange={(event) => setCommission(Number(event.target.value) || 0)} /></label><label>Giá bán tour (đ)<input type="number" value={price} onChange={(event) => setPrice(Number(event.target.value) || 0)} /></label><label>Số khách dự kiến<input type="number" value={guests} onChange={(event) => setGuests(Math.max(1, Number(event.target.value) || 1))} /></label></div>{canManageScenarios && <button className="primary-button" type="button" onClick={() => setMessage("Đã tính lại điểm hòa vốn theo giá sau hoa hồng.")}>Tính giá tour ↻</button>}</section>
+    <section className="stats-grid feature-stats scenario-tour-kpis"><StatCard label="Khách cần để hòa vốn" value={breakEven === null ? "Không khả thi" : `${breakEven} khách`} note="Tính theo giá sau hoa hồng" /><StatCard label="Giá tối thiểu" value={`${minPrice.toLocaleString("vi-VN")} đ`} note={`Để đạt ${guests} khách`} tone="blue" /><StatCard label="Lãi / lỗ dự kiến" value={`${profit >= 0 ? "+" : "−"}${Math.abs(profit / 1000000).toFixed(1).replace(".", ",")}M`} note={`Giá ròng sau hoa hồng ${netPrice.toLocaleString("vi-VN")} đ`} tone="orange" /><StatCard label="Biên sau hoa hồng" value={`${Math.round((profit / Math.max(1, price * guests)) * 100)}%`} note="Sau chi phí trực tiếp" tone="purple" /></section>
+    {message && <div className="notice-banner">✓ {message}</div>}
+    <section className="panel"><SectionTitle kicker="TOUR PRICE OPTIONS" title="So sánh mức giá tour" /><DataTable headers={["MỨC GIÁ", "GIÁ RÒNG", "KHÁCH HÒA VỐN", "LÃI / LỖ VỚI SẢN LƯỢNG DỰ KIẾN", "ĐÁNH GIÁ"]} rows={[[`${(price * .9).toLocaleString("vi-VN")} đ`, `${(price * .9 * (1 - commission / 100)).toLocaleString("vi-VN")} đ`, breakEvenForPrice(price * .9), "Âm biên", <span className="status-tag amber-tag">Rủi ro</span>],[`${price.toLocaleString("vi-VN")} đ`, `${netPrice.toLocaleString("vi-VN")} đ`, breakEven === null ? "Không hòa vốn" : `${breakEven} khách`, `${profit >= 0 ? "+" : "−"}${Math.abs(profit / 1000000).toFixed(1).replace(".", ",")}M`, <span className={`status-tag ${profit >= 0 ? "green-tag" : "amber-tag"}`}>{profit >= 0 ? "Phù hợp" : "Dưới hòa vốn"}</span>],[`${(price * 1.15).toLocaleString("vi-VN")} đ`, `${(price * 1.15 * (1 - commission / 100)).toLocaleString("vi-VN")} đ`, breakEvenForPrice(price * 1.15), "Biên cao hơn", <span className="status-tag gray-tag">Theo dõi</span>]]} /></section>
+  </>;
+}
+
+function ScenarioPackageTab({ canManageScenarios }) {
+  const [selected, setSelected] = useState("Phòng Deluxe + Bữa sáng");
+  const [message, setMessage] = useState("");
+  const options = [
+    { name: "Phòng Deluxe + Bữa sáng", rate: "42%", value: "+180.000 đ / đơn", image: "/images/combo-lunch.png", summary: "Khách Deluxe thường chọn thêm bữa sáng cho hai người.", reason: "Khách Deluxe thường đặt bữa sáng cho 2 người; tỷ lệ mua kèm cao và chi phí phục vụ ổn định." },
+    { name: "Phòng + Đưa đón sân bay", rate: "28%", value: "+320.000 đ / đơn", image: "/images/combo-transfer.png", summary: "Khách đặt trực tiếp thường cần xe đưa đón sân bay.", reason: "Phù hợp khách đặt qua website, khách công tác và nhóm có giờ nhận phòng cố định." },
+    { name: "Suite + Spa 60 phút", rate: "16%", value: "+650.000 đ / đơn", image: "/images/anh-nen-login.png", summary: "Gói thư giãn có biên tốt, hợp khách lưu trú dài ngày.", reason: "Tổ hợp có biên lợi nhuận cao, phù hợp cặp đôi và khách lưu trú dài ngày." },
+  ];
+  const current = options.find((item) => item.name === selected) || options[0];
+  return <>
+    <section className="package-tab-intro"><div><span className="section-kicker">BUY TOGETHER · ATTACH RATE</span><h3>Dịch vụ khách thường mua cùng nhau</h3><p>Chọn một gợi ý để xem dữ liệu làm căn cứ ghép phòng với ăn sáng, spa hoặc đưa đón.</p></div><strong>42%<small>tỷ lệ mua kèm cao nhất</small></strong></section>
+    <section className="package-choice-grid">{options.map((item) => <button type="button" key={item.name} className={selected === item.name ? "selected" : ""} aria-pressed={selected === item.name} onClick={() => setSelected(item.name)}><img src={item.image} alt="" /><span className="package-choice-copy"><span>{item.rate} mua kèm</span><strong>{item.name}</strong><small className="package-choice-reason">{item.summary}</small><small className="package-choice-value">{item.value}</small></span></button>)}</section>
+    <section className="panel package-evidence-panel"><SectionTitle kicker="RECOMMENDATION EVIDENCE" title={current.name} description="Căn cứ từ hành vi mua kèm và giá trị đơn trung bình." /><div className="package-evidence-grid"><div><strong>{current.rate}</strong><span>khách mua kèm</span></div><div><strong>{current.value}</strong><span>giá trị tăng thêm</span></div><p><b>Vì sao gợi ý:</b> {current.reason}</p></div>{canManageScenarios && <button className="primary-button" type="button" onClick={() => setMessage(`Đã chuyển ${current.name} thành gợi ý gói dịch vụ.`)}>＋ Tạo gói từ căn cứ này</button>}</section>
+    {message && <div className="notice-banner">✓ {message}</div>}
+    <section className="panel"><SectionTitle kicker="ATTACH RATE DETAIL" title="Bảng dịch vụ thường mua cùng nhau" /><DataTable headers={["DỊCH VỤ GỐC", "DỊCH VỤ MUA KÈM", "TỶ LỆ", "GIÁ TRỊ TB", "CĂN CỨ"]} rows={[["Phòng Deluxe", "Bữa sáng", "42%", "180.000 đ", "Cặp mua cùng cao nhất"],["Phòng khách sạn", "Đưa đón sân bay", "28%", "320.000 đ", "Khách website / công tác"],["Suite Premium", "Spa 60 phút", "16%", "650.000 đ", "Biên lợi nhuận cao"],["Tour đảo 1 ngày", "Bữa trưa hải sản", "23%", "280.000 đ", "Upsell tại checkout"]]} /></section>
+  </>;
+}
+
+function DataParametersHub({ currentRole = { role: "admin", roleName: "Quản trị viên" } }) {
+  const isRevenueManager = ["revenue_manager", "revenue_manager_lead"].includes(currentRole.role);
+  const isAnalyst = currentRole.role === "revenue_analyst";
+  const tabs = isRevenueManager
+    ? ["Quản lý bảng giá", "Ngưỡng định giá"]
+    : isAnalyst
+      ? ["Tra cứu dữ liệu", "Cập nhật sự kiện", "Trọng số"]
+      : [];
+  const [selectedTab, setSelectedTab] = useState(tabs[0]);
+  const [message, setMessage] = useState("");
+  const tab = tabs.includes(selectedTab) ? selectedTab : tabs[0];
+  const save = (text) => setMessage(`✓ ${text}`);
+  return <div className="hub-page data-parameters-hub"><PageHeader eyebrow="DATA & PARAMETERS" title={<>Dữ liệu và <em>tham số.</em></>} description="Quản lý danh mục, dữ liệu booking và các tham số kiểm soát để mô hình dự báo, chấm điểm và đề xuất giá hoạt động nhất quán." action={<span className="status-tag gray-tag">{currentRole.roleName}</span>} /><div className="data-parameter-tabs" role="tablist">{tabs.map((item) => <button key={item} role="tab" aria-selected={tab === item} className={tab === item ? "active" : ""} onClick={() => { setSelectedTab(item); setMessage(""); }}>{item}</button>)}</div>{message && <div className="notice-banner">{message}</div>}{tab === "Tra cứu dữ liệu" && <BookingHistoryTab onSave={save} />}{tab === "Cập nhật sự kiện" && <SeasonEventTab onSave={save} />}{tab === "Quản lý bảng giá" && <PriceCommissionTab onSave={save} />}{(tab === "Ngưỡng định giá" || tab === "Trọng số") && <ThresholdWeightTab onSave={save} canManagePriceThresholds={isRevenueManager} canEditWeights={isAnalyst} />}</div>;
+}
+
+function CatalogTab({ onSave }) { return <><section className="data-summary-grid"><StatCard label="Hạng phòng / tour" value="08" note="Đang kinh doanh" /><StatCard label="Sức chứa khả dụng" value="148" note="Phòng và chỗ tour" tone="blue" /><StatCard label="Kênh bán" value="04" note="Đang đồng bộ" tone="orange" /></section><section className="panel"><SectionTitle kicker="PRODUCT CATALOG" title="Danh mục hạng phòng / tour và sức chứa" description="Cập nhật sản phẩm, số lượng khả dụng và sức chứa chuẩn." action={<button className="primary-button" type="button" onClick={() => onSave("Đã cập nhật danh mục hạng phòng / tour.")}>＋ Thêm danh mục</button>} /><DataTable headers={["HẠNG PHÒNG / TOUR", "LOẠI", "SỨC CHỨA", "TỒN KHẢ DỤNG", "TRẠNG THÁI", ""]} rows={[["Deluxe Ocean View", "Phòng", "2 khách / phòng", "32", <span className="status-tag green-tag">Đang bán</span>, <button className="table-action" onClick={() => onSave("Đã mở chỉnh sửa Deluxe Ocean View.")}>Sửa</button>],["Standard Garden", "Phòng", "2 khách / phòng", "48", <span className="status-tag green-tag">Đang bán</span>, <button className="table-action">Sửa</button>],["Suite Premium", "Phòng", "4 khách / phòng", "12", <span className="status-tag amber-tag">Theo dõi</span>, <button className="table-action">Sửa</button>],["Tour đảo 1 ngày", "Tour", "32 khách / chuyến", "56 chỗ", <span className="status-tag green-tag">Đang bán</span>, <button className="table-action">Sửa</button>]]} /></section><section className="panel"><SectionTitle kicker="SALES CHANNELS" title="Kênh bán" action={<button className="ghost-button" onClick={() => onSave("Đã cập nhật kênh bán.")}>Cập nhật kênh →</button>} /><DataTable headers={["KÊNH", "LOẠI", "TRẠNG THÁI ĐỒNG BỘ", "NGƯỜI PHỤ TRÁCH"]} rows={[["Website trực tiếp", "Direct", "Đồng bộ hôm nay", "Revenue Manager"],["OTA · Booking", "OTA", "Đồng bộ 15 phút", "Revenue Analyst"],["Đại lý / B2B", "Wholesale", "Cập nhật thủ công", "Sales"],["Walk-in", "Offline", "Đang bật", "Front Office"]]} /></section></>; }
+
+function BookingHistoryTab({ onSave }) { const [search, setSearch] = useState(""); const bookings = [["BK-10284", "08/11/2026", "Deluxe Ocean View", "Website trực tiếp", "2", "1.296.000 đ", "Đã ở"],["BK-10283", "08/11/2026", "Standard Garden", "OTA · Booking", "2", "800.000 đ", "Đã hủy"],["BK-10276", "07/11/2026", "Tour đảo 1 ngày", "Đại lý / B2B", "18", "950.000 đ", "Hoàn tất"],["BK-10261", "05/11/2026", "Suite Premium", "Website trực tiếp", "2", "2.000.000 đ", "Đã ở"]]; const filtered = bookings.filter((row) => row.join(" ").toLowerCase().includes(search.toLowerCase())); return <><section className="panel booking-search-panel"><SectionTitle kicker="BOOKING HISTORY" title="Tra cứu booking lịch sử" description="Tìm theo mã booking, ngày, sản phẩm hoặc kênh bán." /><div className="booking-search"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ví dụ: BK-10284, Deluxe, OTA..." /><select><option>Tất cả trạng thái</option><option>Đã ở</option><option>Đã hủy</option><option>Hoàn tất</option></select><button className="primary-button" type="button" onClick={() => onSave(`Đã tra cứu ${filtered.length} booking phù hợp.`)}>Tra cứu</button></div></section><section className="panel"><SectionTitle kicker="HISTORICAL BOOKINGS" title={`${filtered.length} booking được tìm thấy`} action={<button className="ghost-button" onClick={() => onSave("Đã xuất lịch sử booking.")}>Xuất dữ liệu ↗</button>} /><DataTable headers={["MÃ BOOKING", "NGÀY", "HẠNG PHÒNG / TOUR", "KÊNH", "KHÁCH", "GIÁ", "TRẠNG THÁI"]} rows={filtered.map((row) => [...row.slice(0, 6), <span className={`status-tag ${row[6] === "Đã hủy" ? "amber-tag" : "green-tag"}`}>{row[6]}</span>])} /></section></>; }
+
+function SeasonEventTab({ onSave }) { return <><section className="panel"><SectionTitle kicker="SEASONALITY" title="Mùa vụ và lịch sự kiện" description="Cập nhật các giai đoạn làm thay đổi nhu cầu và mức giá." action={<button className="primary-button" onClick={() => onSave("Đã thêm lịch sự kiện mới.")}>＋ Thêm sự kiện</button>} /><DataTable headers={["SỰ KIỆN / MÙA VỤ", "THỜI GIAN", "TÁC ĐỘNG NHU CẦU", "GỢI Ý VẬN HÀNH", ""]} rows={[["Lễ hội địa phương", "15/11/2026", "+28%", "Bảo vệ giá cao điểm", <button className="table-action">Sửa</button>],["Mùa cao điểm cuối năm", "01/12–31/12", "+18%", "Tăng giá sớm 14 ngày", <button className="table-action">Sửa</button>],["Thứ tư thấp điểm", "Hàng tuần", "−12%", "Mở ưu đãi / combo", <button className="table-action">Sửa</button>]]} /></section><section className="panel event-form-panel"><SectionTitle kicker="EVENT UPDATE" title="Cập nhật lịch sự kiện" /><div className="form-grid"><label>Tên sự kiện<input defaultValue="Lễ hội địa phương" /></label><label>Ngày bắt đầu<input type="date" defaultValue="2026-11-15" /></label><label>Ngày kết thúc<input type="date" defaultValue="2026-11-15" /></label><label>Tác động nhu cầu (%)<input type="number" defaultValue="28" /></label></div><button className="primary-button" onClick={() => onSave("Đã lưu lịch sự kiện và cập nhật tín hiệu nhu cầu.")}>Lưu lịch sự kiện</button></section></>; }
+
+function PriceCommissionTab({ onSave }) {
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const products = [
+    { name: "Deluxe Ocean View", type: "Phòng", image: "/images/anh-nen-khach-san.png", imagePosition: "center center", price: "1.200.000 đ", floor: "950.000 đ", ceiling: "2.200.000 đ", website: "0%", ota: "15%", agent: "12%" },
+    { name: "Standard Garden", type: "Phòng", image: "/images/anh-nen-login.png", imagePosition: "left center", price: "800.000 đ", floor: "650.000 đ", ceiling: "1.500.000 đ", website: "0%", ota: "15%", agent: "10%" },
+    { name: "Tour đảo 1 ngày", type: "Tour", image: "/images/combo-sunset.png", imagePosition: "center", price: "950.000 đ", floor: "760.000 đ", ceiling: "1.400.000 đ", website: "0%", ota: "12%", agent: "18%" },
+  ];
+  const toggleProductDetail = (product) => setSelectedProduct((current) => current?.name === product.name ? null : product);
+  const rows = products.map((product) => [
+    <button key={`product-${product.name}`} className="product-name-cell" type="button" onClick={() => toggleProductDetail(product)} aria-expanded={selectedProduct?.name === product.name} aria-label={`${selectedProduct?.name === product.name ? "Đóng" : "Mở"} chi tiết ${product.name}`}>
+      <img src={product.image} alt="" style={{ objectPosition: product.imagePosition }} />
+      <span>{product.name}</span>
+    </button>,
+    product.price,
+    product.floor,
+    product.ceiling,
+    product.website,
+    product.ota,
+    product.agent,
+    <button key={`product-detail-${product.name}`} className="table-action" type="button" aria-expanded={selectedProduct?.name === product.name} onClick={() => toggleProductDetail(product)}>
+      {selectedProduct?.name === product.name ? "Đóng chi tiết" : "Chi tiết"}
+    </button>,
+  ]);
+  return <>
+    <section className="panel">
+      <SectionTitle kicker="PRICE LIST & COMMISSION" title="Bảng giá và hoa hồng kênh" description="Ảnh thu nhỏ giúp nhận diện nhanh từng hạng phòng hoặc tour; mở chi tiết để xem ảnh lớn." action={<button className="primary-button" onClick={() => onSave("Đã lưu bảng giá và hoa hồng.")}>Lưu thay đổi</button>} />
+      <DataTable headers={["HẠNG PHÒNG / TOUR", "GIÁ NIÊM YẾT", "GIÁ SÀN", "GIÁ TRẦN", "WEBSITE", "OTA · BOOKING", "ĐẠI LÝ", ""]} rows={rows} />
+      {selectedProduct && <section className="product-detail-panel" aria-labelledby="product-detail-title">
+        <img src={selectedProduct.image} alt={`Ảnh ${selectedProduct.name}`} style={{ objectPosition: selectedProduct.imagePosition }} />
+        <div className="product-detail-copy">
+          <div className="product-detail-heading">
+            <div><span className="section-kicker">CHI TIẾT DANH MỤC · {selectedProduct.type.toUpperCase()}</span><h3 id="product-detail-title">{selectedProduct.name}</h3></div>
+            <button type="button" className="ghost-button" onClick={() => setSelectedProduct(null)}>Đóng ×</button>
+          </div>
+          <dl className="product-detail-values">
+            <div><dt>Giá niêm yết</dt><dd>{selectedProduct.price}</dd></div>
+            <div><dt>Giá sàn</dt><dd>{selectedProduct.floor}</dd></div>
+            <div><dt>Giá trần</dt><dd>{selectedProduct.ceiling}</dd></div>
+            <div><dt>Website</dt><dd>{selectedProduct.website}</dd></div>
+            <div><dt>OTA · Booking</dt><dd>{selectedProduct.ota}</dd></div>
+            <div><dt>Đại lý</dt><dd>{selectedProduct.agent}</dd></div>
+          </dl>
+        </div>
+      </section>}
+    </section>
+    <section className="panel"><SectionTitle kicker="CHANNEL COMMISSION UPDATE" title="Cập nhật hoa hồng" /><div className="form-grid"><label>Kênh<select><option>OTA · Booking</option><option>Đại lý / B2B</option><option>Website trực tiếp</option></select></label><label>Hoa hồng (%)<input type="number" defaultValue="15" /></label><label>Áp dụng từ ngày<input type="date" defaultValue="2026-11-18" /></label></div><button className="primary-button" onClick={() => onSave("Đã cập nhật hoa hồng kênh bán.")}>Cập nhật hoa hồng</button></section>
+  </>;
+}
+
+function ThresholdWeightTab({ onSave, canManagePriceThresholds, canEditWeights }) {
+  return <>
+    {canManagePriceThresholds && <section className="panel"><SectionTitle kicker="PRICE GUARDRAILS" title="Ngưỡng giá và công suất" description="Quản lý giá sàn, giá trần, ngưỡng công suất và mức giảm ADR tối đa." action={<button className="primary-button" onClick={() => onSave("Đã lưu ngưỡng giá và công suất.")}>Lưu ngưỡng</button>} /><div className="threshold-parameter-grid"><label>Giá sàn Standard<input type="number" defaultValue="650000" /><small>Không bán thấp hơn mức này</small></label><label>Giá trần Deluxe<input type="number" defaultValue="2200000" /><small>Giới hạn ngày cao điểm</small></label><label>Ngưỡng công suất cao (%)<input type="number" defaultValue="81" /><small>Bắt đầu bảo vệ giá</small></label><label>Giảm ADR tối đa (%)<input type="number" defaultValue="15" /><small>Không giảm quá mức này</small></label></div></section>}
+    {canEditWeights && <section className="panel"><SectionTitle kicker="SCORING WEIGHTS" title="Trọng số chấm điểm" description="Chuyên viên phân tích có thể điều chỉnh trọng số tiêu chí." /><div className="weight-editor"><label><span>Nhu cầu & công suất <b>40%</b></span><input type="range" min="0" max="100" defaultValue="40" /></label><label><span>Giá đối thủ <b>25%</b></span><input type="range" min="0" max="100" defaultValue="25" /></label><label><span>Chi phí & biên lợi nhuận <b>20%</b></span><input type="range" min="0" max="100" defaultValue="20" /></label><label><span>Sự kiện & mùa vụ <b>15%</b></span><input type="range" min="0" max="100" defaultValue="15" /></label></div><button className="primary-button" onClick={() => onSave("Đã lưu trọng số tiêu chí.")}>Lưu trọng số</button></section>}
+  </>;
+}
+
+function AdministrationDashboard({ currentRole = { role: "admin", roleName: "Quản trị viên" } }) {
+  const [tab, setTab] = useState("Tổng quan"); const [message, setMessage] = useState(""); const isAdmin = currentRole.role === "admin";
+  const action = (text) => setMessage(`✓ ${text}`);
+  const tabs = ["Tổng quan", "ETL & chất lượng dữ liệu", "Tài khoản", "Phiên bản mô hình", "Sao lưu cơ sở dữ liệu"];
+  return <div className="hub-page administration-hub"><PageHeader eyebrow="ADMINISTRATION · CONTROL CENTER" title={<>Quản trị <em>hệ thống.</em></>} description="Quản lý dữ liệu, tài khoản, phiên bản mô hình và sao lưu cơ sở dữ liệu cho toàn hệ thống." action={<span className="status-tag gray-tag">{currentRole.roleName}</span>} /><div className="admin-tabs" role="tablist">{tabs.map((item) => <button key={item} role="tab" aria-selected={tab === item} className={tab === item ? "active" : ""} onClick={() => { setTab(item); setMessage(""); }}>{item}</button>)}</div>{message && <div className="notice-banner">{message}</div>}{!isAdmin && <div className="permission-note admin-permission">Một số thao tác chỉ dành cho Quản trị viên.</div>}{tab === "Tổng quan" && <><section className="admin-kpi-grid"><StatCard label="Tài khoản hoạt động" value="04" note="1 Admin · 3 nghiệp vụ" /><StatCard label="Bản ghi hợp lệ gần nhất" value="1.284" note="92% sẵn sàng phân tích" tone="blue" /><StatCard label="Phiên bản mô hình" value="v2.4.1" note="Đang áp dụng" tone="orange" /><StatCard label="Sao lưu gần nhất" value="09:42" note="Hôm nay · thành công" tone="purple" /></section><section className="admin-overview-grid"><section className="panel"><SectionTitle kicker="DATA QUALITY" title="Chất lượng dữ liệu" description="Kết quả lần nạp dữ liệu gần nhất và cách xử lý." /><div className="quality-result-grid"><div><strong>1.284</strong><span>Dòng hợp lệ</span></div><div><strong>18</strong><span>Dòng lỗi</span></div><div><strong>07</strong><span>Dòng trùng</span></div></div><div className="quality-actions"><span>18 lỗi được đưa vào hàng chờ kiểm tra · 07 dòng trùng giữ bản mới nhất.</span><button className="ghost-button" onClick={() => setTab("ETL & chất lượng dữ liệu")}>Xem chi tiết →</button></div></section><section className="panel"><SectionTitle kicker="SYSTEM STATUS" title="Trạng thái hệ thống" /><div className="admin-status-list"><p><span>ETL dữ liệu booking</span><b className="status-tag green-tag">Ổn định</b></p><p><span>Mô hình dự báo nhu cầu</span><b className="status-tag green-tag">Đang chạy</b></p><p><span>Sao lưu cơ sở dữ liệu</span><b className="status-tag green-tag">Đã bật</b></p></div></section></section></>}{tab === "ETL & chất lượng dữ liệu" && <><section className="panel admin-etl-panel"><SectionTitle kicker="ETL PIPELINE" title="Nạp và làm sạch dữ liệu" description="Admin tải dữ liệu, chạy kiểm tra định dạng, loại trùng và ghi nhận kết quả từng lần nạp." action={<label className="file-upload-button">⇧ Chọn file dữ liệu<input type="file" accept=".csv,.xlsx,.xls" onChange={(event) => event.target.files?.[0] && action(`Đã nhận file ${event.target.files[0].name}, sẵn sàng chạy ETL.`)} /></label>} /><div className="etl-step-grid"><div><b>01</b><strong>Upload</strong><span>CSV / Excel</span></div><div><b>02</b><strong>Làm sạch</strong><span>Chuẩn hóa & loại trùng</span></div><div><b>03</b><strong>Kiểm tra</strong><span>Đối soát lỗi</span></div><div><b>04</b><strong>Ghi nhận</strong><span>Lưu vào kho dữ liệu</span></div></div><button className="primary-button" disabled={!isAdmin} onClick={() => action("Đã chạy ETL: chuẩn hóa 1.284 dòng, loại 07 dòng trùng và đưa 18 dòng lỗi vào hàng chờ.")}>▶ Chạy ETL và làm sạch</button></section><section className="panel"><SectionTitle kicker="DATA QUALITY" title="Kết quả làm sạch" /><DataTable headers={["LẦN NẠP", "TỔNG DÒNG", "HỢP LỆ", "LỖI / TRÙNG", "CÁCH XỬ LÝ", "TRẠNG THÁI"]} rows={[["ETL-2026-1118-01", "1.309", "1.284", "25", "Giữ bản mới nhất · đưa lỗi vào hàng chờ", <span className="status-tag green-tag">Hoàn tất</span>],["ETL-2026-1117-02", "986", "972", "14", "Chuẩn hóa ngày và kênh bán", <span className="status-tag green-tag">Hoàn tất</span>],["ETL-2026-1116-01", "742", "726", "16", "Chờ Admin kiểm tra 16 dòng", <span className="status-tag amber-tag">Cần xử lý</span>]]} /></section></>}{tab === "Tài khoản" && <section className="panel"><SectionTitle kicker="ACCOUNT MANAGEMENT" title="Danh sách tài khoản" action={<button className="primary-button" disabled={!isAdmin} onClick={() => action("Đã mở biểu mẫu tạo tài khoản.")}>＋ Thêm tài khoản</button>} /><DataTable headers={["TÀI KHOẢN", "HỌ TÊN", "VAI TRÒ", "ĐĂNG NHẬP GẦN NHẤT", "TRẠNG THÁI", ""]} rows={[["admin", "Quản trị viên TourDSS", "Admin", "Hôm nay · 09:42", <span className="status-tag green-tag">Hoạt động</span>, <button className="table-action">Quản lý</button>],["demo", "Tài khoản demo TourDSS", "Demo đa vai trò", "Hôm nay · 09:35", <span className="status-tag green-tag">Hoạt động</span>, <button className="table-action">Quản lý</button>],["doanh_thu", "Quản lý doanh thu", "Revenue Manager", "Hôm qua · 16:20", <span className="status-tag green-tag">Hoạt động</span>, <button className="table-action">Quản lý</button>],["analyst", "Chuyên viên phân tích", "Revenue Analyst", "Hôm nay · 08:15", <span className="status-tag amber-tag">Cần đổi mật khẩu</span>, <button className="table-action">Quản lý</button>]]} /></section>}{tab === "Phiên bản mô hình" && <section className="panel"><SectionTitle kicker="MODEL REGISTRY" title="Phiên bản mô hình" action={<button className="primary-button" disabled={!isAdmin} onClick={() => action("Đã đăng ký phiên bản mô hình mới.")}>＋ Đăng ký phiên bản</button>} /><DataTable headers={["MÔ HÌNH", "PHIÊN BẢN", "NGÀY HUẤN LUYỆN", "ĐỘ TIN CẬY", "TRẠNG THÁI", "GHI CHÚ"]} rows={[["Forecast Demand", "v2.4.1", "18/11/2026", "91%", <span className="status-tag green-tag">Đang áp dụng</span>, "Đã kiểm định theo pick-up"],["Price Recommendation", "v1.8.0", "17/11/2026", "88%", <span className="status-tag green-tag">Đang áp dụng</span>, "Đã cập nhật trọng số đối thủ"],["Package Affinity", "v1.3.2", "10/11/2026", "84%", <span className="status-tag gray-tag">Lưu trữ</span>, "Có thể khôi phục"]]} /></section>}{tab === "Sao lưu cơ sở dữ liệu" && <section className="panel"><SectionTitle kicker="DATABASE BACKUP" title="Sao lưu cơ sở dữ liệu" action={<button className="primary-button" disabled={!isAdmin} onClick={() => action("Đã bắt đầu sao lưu cơ sở dữ liệu.")}>＋ Sao lưu ngay</button>} /><div className="backup-status-card"><strong>TourDSS_DB_2026-11-18_0942.bak</strong><span>Hoàn tất · 248 MB · Hôm nay lúc 09:42</span><b className="status-tag green-tag">Sẵn sàng khôi phục</b></div><DataTable headers={["THỜI ĐIỂM", "TỆP SAO LƯU", "KÍCH THƯỚC", "NGƯỜI THỰC HIỆN", "TRẠNG THÁI"]} rows={[["18/11/2026 · 09:42", "TourDSS_DB_2026-11-18_0942.bak", "248 MB", "admin", <span className="status-tag green-tag">Thành công</span>],["17/11/2026 · 18:00", "TourDSS_DB_2026-11-17_1800.bak", "246 MB", "admin", <span className="status-tag green-tag">Thành công</span>]]} /></section>}
+  </div>;
+}
+
+function renderPage(page, selectPage, currentRole, currentUser) { if (page === "Tổng quan KPI") return <DashboardOverview selectPage={selectPage} currentRole={currentRole} />; if (page === "Phân tích thị trường") return <AnalysisForecastHub currentRole={currentRole} />; if (page === "Dự báo & pick-up") return <DemandForecastDashboard currentRole={currentRole} />; if (page === "Quyết định giá") return <PricingDecisionHub currentRole={currentRole} currentUser={currentUser} />; if (page === "Mô phỏng & gói dịch vụ") return <ScenarioTourPackageHub currentRole={currentRole} />; if (page === "Dữ liệu và tham số") return <DataParametersHub currentRole={currentRole} />; if (page === "Quản trị hệ thống") return <AdministrationDashboard currentRole={currentRole} />; return <DashboardOverview selectPage={selectPage} currentRole={currentRole} />; }
+
+function AnalysisForecastHub({ currentRole }) { return <div className="hub-page"><CompetitorPositionDashboard currentRole={currentRole} /></div>; }
+
+function CompetitorPositionDashboard({ currentRole = { role: "admin", roleName: "Quản trị viên" } }) {
+  const canEdit = currentRole.role === "revenue_analyst";
+  const canDecide = ["revenue_manager", "revenue_manager_lead"].includes(currentRole.role);
+  const accessLabel = currentRole.role === "sales_director" ? "Xem vị thế giá" : canDecide ? "So sánh, ghi quyết định định vị" : "Nhập/import giá, so sánh đối thủ";
+  const [period, setPeriod] = useState("7 ngày tới");
+  const [room, setRoom] = useState("Tất cả hạng phòng / tour");
+  const [source, setSource] = useState("Tất cả nguồn giá");
+  const [competitorGroup, setCompetitorGroup] = useState("Nhóm đối thủ Phú Quốc");
+  const [message, setMessage] = useState("");
+  const [uploadName, setUploadName] = useState("");
+  const [rows, setRows] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("tourdss_competitor_prices")) || []; } catch { return []; }
+  });
+  const seedRows = [
+    { id: 1, date: "18/11/2026", room: "Standard Garden", source: "Website trực tiếp", hotel: 800000, competitor: 850000, group: "Nhóm đối thủ Phú Quốc", decision: "" },
+    { id: 2, date: "18/11/2026", room: "Deluxe Ocean View", source: "OTA · Booking", hotel: 1200000, competitor: 1150000, group: "Nhóm đối thủ Phú Quốc", decision: "" },
+    { id: 3, date: "19/11/2026", room: "Suite Premium", source: "Website trực tiếp", hotel: 2000000, competitor: 2000000, group: "Nhóm đối thủ Phú Quốc", decision: "" },
+    { id: 4, date: "20/11/2026", room: "Tour đảo 1 ngày", source: "Đại lý / B2B", hotel: 950000, competitor: 1020000, group: "Nhóm đối thủ Phú Quốc", decision: "" },
+  ];
+  const visibleRows = (rows.length ? rows : seedRows).filter((row) => (room === "Tất cả hạng phòng / tour" || row.room === room) && (source === "Tất cả nguồn giá" || row.source === source));
+  const money = (value) => `${Number(value).toLocaleString("vi-VN")} đ`;
+  const getPosition = (row) => { const delta = row.hotel - row.competitor; return delta < -1000 ? "Rẻ hơn thị trường" : delta > 1000 ? "Đắt hơn thị trường" : "Ngang thị trường"; };
+  const getIndex = (row) => ((row.hotel / row.competitor) * 100).toFixed(0);
+  const saveRows = (nextRows, text = "Đã lưu dữ liệu giá đối thủ.") => { setRows(nextRows); localStorage.setItem("tourdss_competitor_prices", JSON.stringify(nextRows)); setMessage(text); };
+  const updateRow = (id, field, value) => { const base = rows.length ? rows : seedRows; const next = base.map((row) => row.id === id ? { ...row, [field]: field === "hotel" || field === "competitor" ? Number(value) : value } : row); saveRows(next); };
+  const addRow = () => { const base = rows.length ? rows : seedRows; saveRows([...base, { id: Date.now(), date: "21/11/2026", room: "Deluxe Ocean View", source: "Website trực tiếp", hotel: 1200000, competitor: 1200000, group: competitorGroup, decision: "" }], "Đã thêm một dòng giá để Analyst nhập."); };
+  const handleFile = (event) => { const file = event.target.files?.[0]; if (!file) return; setUploadName(file.name); const reader = new FileReader(); reader.onload = () => { try { const workbook = XLSX.read(reader.result, { type: "array" }); const sheet = workbook.Sheets[workbook.SheetNames[0]]; const records = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }); const imported = records.slice(1).map((record, index) => { const [date, roomName, priceSource, hotel, competitor] = record; return date && roomName ? { id: Date.now() + index, date: String(date), room: String(roomName), source: String(priceSource || "Website trực tiếp"), hotel: Number(hotel) || 0, competitor: Number(competitor) || 0, group: competitorGroup, decision: "" } : null; }).filter(Boolean); if (imported.length) saveRows([...(rows.length ? rows : seedRows), ...imported], `Đã nạp ${imported.length} dòng từ ${file.name}.`); else setMessage("File chưa có dữ liệu đúng mẫu."); } catch { setMessage("Không đọc được file. Hãy dùng mẫu cột: Ngày, Hạng phòng / tour, Nguồn giá, Giá khách sạn, Giá đối thủ."); } }; reader.readAsArrayBuffer(file); };
+  const recordDecision = (id, decision) => { const base = rows.length ? rows : seedRows; saveRows(base.map((row) => row.id === id ? { ...row, decision } : row), `Đã ghi nhận lựa chọn “${decision}”.`); };
+  return <>
+    <PageHeader eyebrow="MARKET INTELLIGENCE · COMPETITOR POSITION" title={<>Giá đối thủ và <em>vị thế.</em></>} description="Theo dõi giá khách sạn và nhóm đối thủ theo ngày, hạng phòng, nguồn giá để biết mình đang rẻ hơn, ngang hay đắt hơn thị trường." action={<span className="status-tag gray-tag">{accessLabel}</span>} />
+    <section className="dashboard-filters competitor-filters"><div><span className="section-kicker">MARKET RATE SHOP</span><strong>Chọn dữ liệu cần so sánh</strong></div><label>Giai đoạn<select value={period} onChange={(event) => setPeriod(event.target.value)}><option>7 ngày tới</option><option>30 ngày tới</option><option>Quý tới</option></select></label><label>Hạng phòng / tour<select value={room} onChange={(event) => setRoom(event.target.value)}><option>Tất cả hạng phòng / tour</option><option>Standard Garden</option><option>Deluxe Ocean View</option><option>Suite Premium</option><option>Tour đảo 1 ngày</option></select></label><label>Nguồn giá<select value={source} onChange={(event) => setSource(event.target.value)}><option>Tất cả nguồn giá</option><option>Website trực tiếp</option><option>OTA · Booking</option><option>Đại lý / B2B</option></select></label><label>Nhóm đối thủ<select value={competitorGroup} onChange={(event) => setCompetitorGroup(event.target.value)}><option>Nhóm đối thủ Phú Quốc</option><option>Nhóm resort cao cấp</option><option>Nhóm tour địa phương</option></select></label></section>
+    {canEdit && <section className="market-import-toolbar"><div><strong>Nhập giá thị trường</strong><span>Nhập từng dòng hoặc nạp file CSV / Excel.</span>{uploadName && <small>File đã chọn: {uploadName}</small>}</div><div><button className="secondary-button" type="button" onClick={addRow}>＋ Thêm dòng giá</button><label className="file-upload-button">⇧ Nạp file Excel<input type="file" accept=".csv,.xlsx,.xls" onChange={handleFile} /></label></div></section>}
+    {message && <div className="notice-banner">✓ {message}</div>}
+    <section className="stats-grid feature-stats market-position-kpis"><StatCard label="Chỉ số giá trung bình" value={`${visibleRows.length ? Math.round(visibleRows.reduce((sum, row) => sum + Number(getIndex(row)), 0) / visibleRows.length) : 0}`} note="100 = ngang thị trường" /><StatCard label="Đang rẻ hơn thị trường" value={`${visibleRows.filter((row) => getPosition(row) === "Rẻ hơn thị trường").length} dòng`} note="Có thể xem xét tăng giá" tone="blue" /><StatCard label="Đang đắt hơn thị trường" value={`${visibleRows.filter((row) => getPosition(row) === "Đắt hơn thị trường").length} dòng`} note="Cần theo dõi sức mua" tone="orange" /></section>
+    <section className="panel competitor-table-panel"><SectionTitle kicker="COMPETITOR RATE POSITION" title="Giá khách sạn và nhóm đối thủ" description={`${competitorGroup} · ${period} · Chỉ số giá = giá khách sạn / giá đối thủ × 100`} /><div className="table-wrapper"><table><thead><tr><th>NGÀY</th><th>HẠNG PHÒNG / TOUR</th><th>NGUỒN GIÁ</th><th>GIÁ KHÁCH SẠN</th><th>GIÁ ĐỐI THỦ</th><th>CHÊNH LỆCH</th><th>CHỈ SỐ GIÁ</th><th>VỊ THẾ</th><th>LỰA CHỌN</th></tr></thead><tbody>{visibleRows.map((row) => { const delta = row.hotel - row.competitor; const position = getPosition(row); return <tr key={row.id}><td>{row.date}</td><td><strong>{row.room}</strong></td><td>{row.source}</td><td>{canEdit ? <input className="inline-price-input" type="number" value={row.hotel} onChange={(event) => updateRow(row.id, "hotel", event.target.value)} /> : money(row.hotel)}</td><td>{canEdit ? <input className="inline-price-input" type="number" value={row.competitor} onChange={(event) => updateRow(row.id, "competitor", event.target.value)} /> : money(row.competitor)}</td><td className={delta < 0 ? "price-lower" : delta > 0 ? "price-higher" : "price-equal"}>{delta === 0 ? "Bằng nhau" : `${delta > 0 ? "+" : "−"}${money(Math.abs(delta))}`}</td><td><strong>{getIndex(row)}</strong></td><td><span className={`status-tag ${position === "Rẻ hơn thị trường" ? "green-tag" : position === "Đắt hơn thị trường" ? "amber-tag" : "gray-tag"}`}>{position}</span></td><td>{canDecide ? <select className="decision-select" value={row.decision || ""} onChange={(event) => recordDecision(row.id, event.target.value)}><option value="">Chọn phương án</option><option>Giữ giá</option><option>Bám theo đối thủ</option><option>Định giá khác biệt</option></select> : <span className="permission-note">Chờ quản lý ghi nhận</span>}</td></tr>; })}</tbody></table></div></section>
+    <section className="market-decision-note"><span className="section-kicker">DECISION GUIDE</span><strong>Người quản lý ghi nhận lựa chọn sau khi xem vị thế</strong><p>Giữ giá khi chỉ số quanh 100; bám theo đối thủ khi cần bảo vệ sức cạnh tranh; định giá khác biệt khi sản phẩm có lợi thế trải nghiệm hoặc nhu cầu cao.</p></section>
+  </>;
+}
 
 function MarketOverviewDashboard() {
   const [period, setPeriod] = useState("30 ngày qua");
@@ -142,23 +396,29 @@ function MarketOverviewDashboard() {
   </>;
 }
 
-function DashboardOverview({ selectPage }) {
+function DashboardOverview({ selectPage, currentRole = { role: "sales_director", roleName: "Giám đốc Kinh doanh" } }) {
+  const canFilter = ["revenue_manager", "revenue_analyst"].includes(currentRole.role);
+  const canAnalyze = ["revenue_manager", "revenue_analyst"].includes(currentRole.role);
+  const canExport = currentRole.role === "revenue_analyst";
+  const accessLabel = currentRole.role === "sales_director" ? "Xem KPI toàn hệ thống" : currentRole.role === "revenue_manager" ? "Xem, lọc và phân tích" : "Phân tích";
   const [period, setPeriod] = useState("30 ngày qua");
   const [product, setProduct] = useState("Tất cả phòng / tour");
   const [channel, setChannel] = useState("Tất cả kênh bán");
+  const [segment, setSegment] = useState("Tất cả phân khúc");
+  const [granularity, setGranularity] = useState("Theo tháng");
   const filterProfiles = {
-    "30 ngày qua|Tất cả phòng / tour|Tất cả kênh bán": { occupancy: "75%", adr: "1,2M", revpar: "900K", revenue: "90M", change: "+7,2 điểm %", scale: 1 },
-    "Quý này|Tất cả phòng / tour|Tất cả kênh bán": { occupancy: "71%", adr: "1,16M", revpar: "824K", revenue: "248M", change: "+5,1 điểm %", scale: .86 },
-    "Năm nay|Tất cả phòng / tour|Tất cả kênh bán": { occupancy: "68%", adr: "1,08M", revpar: "734K", revenue: "1,02T", change: "+3,8 điểm %", scale: .72 },
-    "30 ngày qua|Phòng khách sạn|Tất cả kênh bán": { occupancy: "78%", adr: "1,35M", revpar: "1,05M", revenue: "76M", change: "+8,4 điểm %", scale: 1.08 },
-    "30 ngày qua|Tour trải nghiệm|Tất cả kênh bán": { occupancy: "64%", adr: "950K", revpar: "608K", revenue: "14M", change: "+4,2 điểm %", scale: .72 },
+    "30 ngày qua|Tất cả phòng / tour|Tất cả kênh bán": { occupancy: "75%", adr: "1,2M", revpar: "900K", goppar: "412K", revenue: "90M", change: "+7,2 điểm %", scale: 1 },
+    "Quý này|Tất cả phòng / tour|Tất cả kênh bán": { occupancy: "71%", adr: "1,16M", revpar: "824K", goppar: "376K", revenue: "248M", change: "+5,1 điểm %", scale: .86 },
+    "Năm nay|Tất cả phòng / tour|Tất cả kênh bán": { occupancy: "68%", adr: "1,08M", revpar: "734K", goppar: "338K", revenue: "1,02T", change: "+3,8 điểm %", scale: .72 },
+    "30 ngày qua|Phòng khách sạn|Tất cả kênh bán": { occupancy: "78%", adr: "1,35M", revpar: "1,05M", goppar: "486K", revenue: "76M", change: "+8,4 điểm %", scale: 1.08 },
+    "30 ngày qua|Tour trải nghiệm|Tất cả kênh bán": { occupancy: "64%", adr: "950K", revpar: "608K", goppar: "264K", revenue: "14M", change: "+4,2 điểm %", scale: .72 },
   };
-  const profile = filterProfiles[`${period}|${product}|${channel}`] || { occupancy: "72%", adr: "1,12M", revpar: "806K", revenue: "42M", change: "+5,6 điểm %", scale: .82 };
+  const profile = filterProfiles[`${period}|${product}|${channel}`] || { occupancy: "72%", adr: "1,12M", revpar: "806K", goppar: "354K", revenue: "42M", change: "+5,6 điểm %", scale: .82 };
   const channelTotals = channel === "Tất cả kênh bán" ? ["36,4M", "29,8M", "18,2M", "5,6M"] : channel === "Website trực tiếp" ? [profile.revenue, "—", "—", "—"] : channel === "OTA · Booking" ? ["—", profile.revenue, "—", "—"] : ["—", "—", profile.revenue, "—"];
   const chartHeights = [42, 55, 48, 68, 61, 76, 70, 88, 79, 94, 84, 96].map((height) => Math.min(100, Math.round(height * profile.scale)));
   const channelRows = channel === "Tất cả kênh bán" ? [["Website trực tiếp", "36,4M"], ["OTA · Booking", "29,8M"], ["Đại lý / B2B", "18,2M"], ["Walk-in", "5,6M"]] : [[channel, profile.revenue]];
   const exportOverviewReport = () => {
-    const rows = [["Bộ lọc", "Giá trị"], ["Thời gian", period], ["Phòng / tour", product], ["Kênh bán", channel], [], ["Chỉ số", "Kết quả"], ["Công suất phòng", profile.occupancy], ["Giá phòng bình quân ADR", profile.adr], ["RevPAR", profile.revpar], ["Doanh thu thuần", profile.revenue], [], ["Kênh bán", "Doanh thu"] , ...channelRows];
+    const rows = [["Bộ lọc", "Giá trị"], ["Thời gian", period], ["Cấp xem", granularity], ["Phòng / tour", product], ["Kênh bán", channel], ["Phân khúc", segment], [], ["Chỉ số", "Kết quả"], ["Công suất phòng", profile.occupancy], ["ADR", profile.adr], ["RevPAR", profile.revpar], ["GOPPAR", profile.goppar], [], ["Kênh bán", "Doanh thu thuần sau hoa hồng"] , ...channelRows];
     const csv = rows.map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\n");
     const link = document.createElement("a");
     link.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }));
@@ -168,15 +428,16 @@ function DashboardOverview({ selectPage }) {
   };
   const marketRows = product === "Tour trải nghiệm" ? [[<strong>Tour đảo 1 ngày</strong>, "950.000 đ", "1.020.000 đ", <span className="price-lower">−70.000 đ</span>, <span className="status-tag green-tag">Có thể tăng</span>]] : product === "Phòng khách sạn" ? [[<strong>Standard</strong>, "800.000 đ", "850.000 đ", <span className="price-lower">−50.000 đ</span>, <span className="status-tag green-tag">Có thể tăng</span>], [<strong>Deluxe</strong>, "1.200.000 đ", "1.150.000 đ", <span className="price-higher">+50.000 đ</span>, <span className="status-tag amber-tag">Theo dõi</span>], [<strong>Suite</strong>, "2.000.000 đ", "2.000.000 đ", <span className="price-equal">Bằng nhau</span>, <span className="status-tag gray-tag">Ổn định</span>]] : [[<strong>Standard</strong>, "800.000 đ", "850.000 đ", <span className="price-lower">−50.000 đ</span>, <span className="status-tag green-tag">Có thể tăng</span>], [<strong>Deluxe</strong>, "1.200.000 đ", "1.150.000 đ", <span className="price-higher">+50.000 đ</span>, <span className="status-tag amber-tag">Theo dõi</span>], [<strong>Suite</strong>, "2.000.000 đ", "2.000.000 đ", <span className="price-equal">Bằng nhau</span>, <span className="status-tag gray-tag">Ổn định</span>], [<strong>Tour đảo 1 ngày</strong>, "950.000 đ", "1.020.000 đ", <span className="price-lower">−70.000 đ</span>, <span className="status-tag green-tag">Có thể tăng</span>]];
   return <>
-    <section className="hero-story" aria-label="Tổng quan không gian luxury">
-      <div className="hero-copy"><span className="hero-brow">TOURDSS · REVENUE CONTROL CENTER</span><h3>Tổng quan<br /><i>doanh thu.</i></h3><p>Nhìn nhanh nhu cầu, công suất và tín hiệu giá để đội ngũ ra quyết định tự tin hơn mỗi ngày.</p></div>
+    <section className="hero-story kpi-hero" aria-label="Tổng quan KPI">
+      <div className="hero-copy"><span className="hero-brow">TOURDSS · KPI CONTROL CENTER</span><h3>Tổng quan<br /><i>KPI vận hành.</i></h3><p>Theo dõi sức khỏe doanh thu khách sạn và tour qua công suất, giá bán, doanh thu phòng khả dụng và lợi nhuận vận hành.</p></div>
     </section>
-    <section className="dashboard-filters"><div><span className="section-kicker">THAO TÁC CHÍNH</span><strong>Lọc nhanh dữ liệu</strong></div><label>Thời gian<select value={period} onChange={(event) => setPeriod(event.target.value)}><option>30 ngày qua</option><option>Quý này</option><option>Năm nay</option></select></label><label>Phòng / tour<select value={product} onChange={(event) => setProduct(event.target.value)}><option>Tất cả phòng / tour</option><option>Phòng khách sạn</option><option>Tour trải nghiệm</option></select></label><label>Kênh bán<select value={channel} onChange={(event) => setChannel(event.target.value)}><option>Tất cả kênh bán</option><option>Website trực tiếp</option><option>OTA · Booking</option><option>Đại lý / B2B</option></select></label><button className="dashboard-export-button" type="button" onClick={exportOverviewReport}>Xuất báo cáo ↗</button></section>
-    <section className="stats-grid feature-stats dashboard-kpis"><StatCard label="Công suất phòng" value={profile.occupancy} note={`${profile.change} so với kỳ trước`} /><StatCard label="ADR · Giá phòng bình quân" value={profile.adr} note="Đã lọc theo lựa chọn" tone="blue" /><StatCard label="RevPAR" value={profile.revpar} note="Doanh thu trên công suất khả dụng" tone="orange" /><StatCard label="Doanh thu thuần" value={profile.revenue} note="Sau chiết khấu & phí kênh" tone="purple" /></section>
+    {canFilter ? <section className="dashboard-filters kpi-filter-bar"><div><span className="section-kicker">KPI CONTROL CENTER</span><strong>Bộ lọc & cấp độ xem</strong></div><label>Thời gian<select value={period} onChange={(event) => setPeriod(event.target.value)}><option>30 ngày qua</option><option>Quý này</option><option>Năm nay</option></select></label><label>Cấp xem<select value={granularity} onChange={(event) => setGranularity(event.target.value)}><option>Theo năm</option><option>Theo quý</option><option>Theo tháng</option><option>Theo ngày</option></select></label><label>Hạng phòng / tour<select value={product} onChange={(event) => setProduct(event.target.value)}><option>Tất cả phòng / tour</option><option>Phòng khách sạn</option><option>Tour trải nghiệm</option></select></label><label>Kênh bán<select value={channel} onChange={(event) => setChannel(event.target.value)}><option>Tất cả kênh bán</option><option>Website trực tiếp</option><option>OTA · Booking</option><option>Đại lý / B2B</option></select></label><label>Phân khúc khách<select value={segment} onChange={(event) => setSegment(event.target.value)}><option>Tất cả phân khúc</option><option>Cá nhân</option><option>Cặp đôi</option><option>Gia đình</option><option>Đoàn / công ty</option></select></label>{canExport && <button className="dashboard-export-button" type="button" onClick={exportOverviewReport}>Xuất báo cáo ↗</button>}</section> : <div className="permission-note kpi-access-note">{accessLabel}</div>}
+    <section className="stats-grid feature-stats dashboard-kpis"><StatCard label="Công suất phòng · Occupancy" value={profile.occupancy} note={`${profile.change} so với kỳ trước`} /><StatCard label="Giá bán phòng trung bình · ADR" value={profile.adr} note="Giá bình quân theo lựa chọn" tone="blue" /><StatCard label="Doanh thu / phòng khả dụng · RevPAR" value={profile.revpar} note="Sau khi tính công suất phòng" tone="orange" /><StatCard label="Lợi nhuận hoạt động / phòng khả dụng · GOPPAR" value={profile.goppar} note="Sau chi phí vận hành trực tiếp" tone="purple" /></section>
     <section className="dashboard-visual-grid">
-      <section className="panel dashboard-chart-panel"><SectionTitle kicker="DAILY PERFORMANCE" title="Doanh thu & công suất theo ngày" description={`Theo ${period.toLowerCase()} · ${product} · ${channel}`} action={<button className="ghost-button" onClick={() => selectPage("Phân tích kinh doanh")}>Xem phân tích →</button>} /><div className="dual-chart"><div className="dual-axis"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0</span></div><div className="dual-chart-area"><div className="chart-grid-lines"><i /><i /><i /><i /><i /></div><div className="revenue-bars">{chartHeights.map((height, index) => <div key={index} className="revenue-column"><b style={{ height: `${height}%` }} /><small>{index + 1}/11</small></div>)}</div><svg className="occupancy-line" viewBox="0 0 720 190" preserveAspectRatio="none" aria-label="Đường công suất theo ngày"><path d="M0 142 C52 130 80 141 120 124 S180 112 220 124 S280 92 330 105 S390 78 440 91 S500 62 548 76 S620 42 720 52" fill="none" stroke="#b39462" strokeWidth="4" strokeLinecap="round" /></svg></div></div><div className="chart-caption"><span><i className="legend-fill" /> Doanh thu</span><span><i className="legend-line" /> Công suất</span></div></section>
-      <section className="panel channel-panel"><SectionTitle kicker="CHANNEL MIX" title="Hiệu quả theo kênh bán" description={`Doanh thu thuần theo lựa chọn · ${channel}`} /><div className="channel-chart"><div className="channel-donut"><strong>{profile.revenue}</strong><span>tổng doanh thu</span></div><div className="channel-legend">{channelRows.map(([name, value]) => <p key={name}><i className={`channel-dot ${name === "Website trực tiếp" ? "direct" : name === "OTA · Booking" ? "ota" : name === "Đại lý / B2B" ? "partner" : "walkin"}`} /><span>{name}</span><b>{value}</b></p>)}</div></div></section>
+      <section className="panel dashboard-chart-panel"><SectionTitle kicker="TIME SERIES" title={`Doanh thu, công suất & GOPPAR · ${granularity}`} description={`Bấm cấp xem để chuyển từ năm xuống quý, tháng hoặc ngày · ${period} · ${product}`} action={canAnalyze && <button className="ghost-button" onClick={() => selectPage("Phân tích kinh doanh")}>Phân tích →</button>} /><div className="dual-chart"><div className="dual-axis"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0</span></div><div className="dual-chart-area"><div className="chart-grid-lines"><i /><i /><i /><i /><i /></div><div className="revenue-bars">{chartHeights.map((height, index) => <div key={index} className="revenue-column"><b style={{ height: `${height}%` }} /><small>{granularity === "Theo năm" ? `N${index + 1}` : granularity === "Theo quý" ? `Q${(index % 4) + 1}` : granularity === "Theo tháng" ? `T${index + 1}` : `${index + 1}/11`}</small></div>)}</div><svg className="occupancy-line" viewBox="0 0 720 190" preserveAspectRatio="none" aria-label="Đường công suất theo thời gian"><path d="M0 142 C52 130 80 141 120 124 S180 112 220 124 S280 92 330 105 S390 78 440 91 S500 62 548 76 S620 42 720 52" fill="none" stroke="#b39462" strokeWidth="4" strokeLinecap="round" /></svg></div></div><div className="chart-caption"><span><i className="legend-fill" /> Doanh thu thuần</span><span><i className="legend-line" /> Công suất</span><span><i className="legend-dot" /> GOPPAR</span></div></section>
+      <section className="panel channel-panel"><SectionTitle kicker="NET REVENUE BY CHANNEL" title="So sánh doanh thu thuần theo kênh" description="Doanh thu sau hoa hồng, chiết khấu và phí kênh bán." /><div className="channel-chart"><div className="channel-donut"><strong>{profile.revenue}</strong><span>doanh thu thuần</span></div><div className="channel-legend">{channelRows.map(([name, value]) => <p key={name}><i className={`channel-dot ${name === "Website trực tiếp" ? "direct" : name === "OTA · Booking" ? "ota" : name === "Đại lý / B2B" ? "partner" : "walkin"}`} /><span>{name}</span><b>{value}</b></p>)}</div></div></section>
     </section>
+    <section className="panel kpi-cross-panel"><SectionTitle kicker="KPI CROSS-TAB" title="Bảng chéo KPI theo hạng phòng / tour và kênh bán" description={`Màu đậm hơn thể hiện hiệu quả tốt hơn · ${segment} · ${granularity}`} /><div className="kpi-cross-table"><table><thead><tr><th>HẠNG PHÒNG / TOUR</th><th>Website trực tiếp</th><th>OTA · Booking</th><th>Đại lý / B2B</th><th>GOPPAR bình quân</th></tr></thead><tbody>{[["Deluxe Ocean View", ["48M", "36M", "24M"], "486K"], ["Standard Garden", ["31M", "26M", "18M"], "312K"], ["Suite Premium", ["22M", "17M", "12M"], "628K"], ["Tour đảo 1 ngày", ["18M", "14M", "9M"], "264K"]].map(([name, values, goppar]) => <tr key={name}><th>{name}</th>{values.map((value, index) => <td key={value} style={{ "--heat": `${45 + index * 15}%` }}>{value}<small>{index === 0 ? " biên tốt" : index === 1 ? " sau phí OTA" : " cần theo dõi"}</small></td>)}<td className="cross-total">{goppar}</td></tr>)}</tbody></table></div></section>
     <section className="content-grid dashboard-main"><section className="panel market-panel"><SectionTitle kicker="MARKET WATCH" title="Giá hiện tại so với giá đối thủ" description={`Chỉ hiển thị ${product === "Tất cả phòng / tour" ? "phòng và tour" : product.toLowerCase()} trong lựa chọn hiện tại.`} action={<button className="ghost-button" onClick={() => selectPage("Giá đối thủ & sự kiện")}>Xem thị trường →</button>} /><DataTable headers={["SẢN PHẨM", "GIÁ HIỆN TẠI", "GIÁ ĐỐI THỦ", "CHÊNH LỆCH", "GỢI Ý"]} rows={marketRows} /></section><section className="panel alert-panel"><SectionTitle kicker="ALERTS & APPROVALS" title="Cảnh báo & đề xuất chờ duyệt" /><div className="alert-list"><p className="alert-item warning"><b>!</b><span><strong>Cuối tuần sắp đầy</strong> Deluxe đạt 93% công suất, cân nhắc tăng giá 8%.</span></p><p className="alert-item info"><b>i</b><span><strong>Nhu cầu thứ tư yếu</strong> Còn 42% phòng trống, nên kích cầu bằng gói bữa sáng.</span></p><div className="pending-approval"><span className="approval-icon">↗</span><span><strong>Điều chỉnh giá Deluxe +8%</strong><small>Chờ Giám đốc duyệt · 10 phút trước</small></span><button onClick={() => selectPage("Phê duyệt & báo cáo")}>Mở</button></div></div><Button onClick={() => selectPage("Phê duyệt & báo cáo")}>Xem tất cả →</Button></section></section>
     <section className="panel dashboard-actions"><SectionTitle kicker="DECISION CORE" title="Vòng đời ra quyết định" description="TourDSS phân tích và mô phỏng; người quản lý là người chốt phương án cuối cùng." /><div className="action-grid"><button onClick={() => selectPage("Dữ liệu đầu vào")}><span>01</span><strong>Chuẩn bị dữ liệu</strong><small>Đặt chỗ, công suất, chi phí, đối thủ và sự kiện</small></button><button onClick={() => selectPage("Phân tích kinh doanh")}><span>02</span><strong>Phân tích & dự báo</strong><small>Đọc nhu cầu, công suất và xu hướng doanh thu</small></button><button onClick={() => selectPage("Mô phỏng What-if")}><span>03</span><strong>Mô phỏng phương án</strong><small>Thử giá, ưu đãi và phân bổ công suất trước khi áp dụng</small></button><button onClick={() => selectPage("Phê duyệt & báo cáo")}><span>04</span><strong>Đề xuất & phê duyệt</strong><small>Gửi phương án để người quản lý quyết định cuối cùng</small></button></div></section>
   </>;
@@ -227,10 +488,12 @@ function BusinessAnalyticsDashboard() {
   </>;
 }
 
-function DemandForecastDashboard() {
+function DemandForecastDashboard({ currentRole = { role: "sales_director", roleName: "Giám đốc Kinh doanh" } }) {
+  const accessLabel = currentRole.role === "sales_director" ? "Xem dự báo và cảnh báo" : currentRole.role === "revenue_manager" ? "Xem để lập phương án giá" : "Theo dõi pick-up, phân tích biến động";
   const [object, setObject] = useState("Tất cả phòng / tour");
   const [range, setRange] = useState("30 ngày tới");
   const [granularity, setGranularity] = useState("Theo ngày");
+  const [alertFilter, setAlertFilter] = useState("Tất cả cảnh báo");
   const [forecast, setForecast] = useState({ expectedBookings: 186, expectedOccupancy: 82, confidence: 91, peakDate: "15/11", peakOccupancy: 96 });
   const [forecastError, setForecastError] = useState("");
   useEffect(() => {
@@ -242,13 +505,14 @@ function DemandForecastDashboard() {
     return () => controller.abort();
   }, [object, range, granularity]);
   return <>
-    <PageHeader eyebrow="DEMAND FORECAST" title={<>Dự báo <em>nhu cầu.</em></>} description="Nhìn trước lượng đặt phòng và chỗ tour để chủ động giá, công suất và kế hoạch bán." action={<Button>Xuất dự báo ↗</Button>} />
+    <PageHeader eyebrow="DEMAND FORECAST · PICK-UP" title={<>Dự báo <em>& pick-up.</em></>} description="Theo dõi công suất thực tế, dự báo và tốc độ nhận thêm đặt chỗ để biết ngày nào cần bảo vệ giá hoặc mở ưu đãi." action={<span className="status-tag gray-tag">{accessLabel}</span>} />
     {forecastError && <div className="notice-banner">⚠ {forecastError}</div>}
-    <section className="forecast-controls"><div><span className="section-kicker">THAO TÁC CHÍNH</span><strong>Chọn đối tượng và khoảng dự báo</strong></div><label>Đối tượng<select value={object} onChange={(event) => setObject(event.target.value)}><option>Tất cả phòng / tour</option><option>Deluxe Ocean View</option><option>Standard Garden</option><option>Tour đảo 1 ngày</option></select></label><label>Khoảng dự báo<select value={range} onChange={(event) => setRange(event.target.value)}><option>7 ngày tới</option><option>30 ngày tới</option><option>60 ngày tới</option><option>Quý tới</option></select></label><label>Gom theo<select value={granularity} onChange={(event) => setGranularity(event.target.value)}><option>Theo ngày</option><option>Theo tuần</option><option>Theo tháng</option></select></label></section>
+    <section className="forecast-controls"><div><span className="section-kicker">FORECAST CONTROL</span><strong>{accessLabel}</strong></div><label>Hạng phòng / tour<select value={object} onChange={(event) => setObject(event.target.value)}><option>Tất cả phòng / tour</option><option>Deluxe Ocean View</option><option>Standard Garden</option><option>Tour đảo 1 ngày</option></select></label><label>Giai đoạn<select value={range} onChange={(event) => setRange(event.target.value)}><option>7 ngày tới</option><option>30 ngày tới</option><option>60 ngày tới</option><option>Quý tới</option></select></label><label>Gom theo<select value={granularity} onChange={(event) => setGranularity(event.target.value)}><option>Theo ngày</option><option>Theo tuần</option><option>Theo tháng</option></select></label></section>
     <section className="visual-banner forecast-hero"><img src="/images/anh-nen-khach-san.png" alt="Dự báo nhu cầu khách sạn" /><div className="visual-banner-copy"><span className="visual-label">FORECAST · ACTUAL · OPPORTUNITY</span><h3>Đón nhu cầu trước khi khách đặt.</h3><p>Dự báo theo ngày, tuần hoặc tháng giúp đội ngũ bảo vệ giá cao điểm và kích cầu ngày thấp.</p><div className="visual-metric"><strong>82%</strong><span>công suất dự kiến</span></div></div></section>
-    <section className="stats-grid feature-stats forecast-kpis"><StatCard label="Nhu cầu dự kiến" value={forecast.expectedBookings} note={`Đơn trong ${range.toLowerCase()}`} /><StatCard label="Công suất dự kiến" value={`${forecast.expectedOccupancy}%`} note="+7 điểm % so với hiện tại" tone="blue" /><StatCard label="Độ tin cậy" value={`${forecast.confidence}%`} note="Dựa trên dữ liệu lịch sử" tone="orange" /><StatCard label="Ngày cao điểm" value={forecast.peakDate} note={`Có thể đạt ${forecast.peakOccupancy}% công suất`} tone="purple" /></section>
-    <section className="panel forecast-chart-panel"><SectionTitle kicker="ACTUAL VS FORECAST" title={`Nhu cầu ${granularity.toLowerCase()}`} description={`${object} · ${range}`} action={<span className="forecast-legend"><i className="actual-dot" /> Thực tế <i className="forecast-dot" /> Dự báo</span>} /><div className="demand-chart"><div className="demand-axis"><span>100</span><span>75</span><span>50</span><span>25</span><span>0</span></div><div className="demand-chart-area"><svg viewBox="0 0 760 240" preserveAspectRatio="none" aria-label="Biểu đồ thực tế và dự báo"><path d="M0 176 C46 164 76 168 118 152 S182 145 224 154 S278 126 320 137 L380 124 L380 240 L0 240Z" fill="#e2eee5" /><path d="M380 124 C430 116 467 92 510 106 S567 68 610 82 S680 38 760 48 L760 240 L380 240Z" fill="#f2e8d7" /><path d="M0 176 C46 164 76 168 118 152 S182 145 224 154 S278 126 320 137 S355 118 380 124" fill="none" stroke="#5e9c7d" strokeWidth="4" strokeLinecap="round" /><path d="M380 124 C430 116 467 92 510 106 S567 68 610 82 S680 38 760 48" fill="none" stroke="#b39462" strokeWidth="4" strokeLinecap="round" strokeDasharray="8 7" /></svg><div className="demand-dates"><span>01/11</span><span>08/11</span><span>15/11</span><span>22/11</span><span>30/11</span></div></div></div></section>
-    <section className="content-grid forecast-insights"><section className="panel"><SectionTitle kicker="HIGH DEMAND" title="Ngày cần bảo vệ giá" /><div className="date-list"><p><b>15/11</b><span>Chủ nhật · Lễ hội địa phương</span><strong>96%</strong></p><p><b>21/11</b><span>Thứ bảy · Cuối tuần</span><strong>93%</strong></p><p><b>22/11</b><span>Chủ nhật · Cuối tuần</span><strong>91%</strong></p></div></section><section className="panel"><SectionTitle kicker="LOW DEMAND" title="Ngày nên kích cầu" /><div className="date-list low"><p><b>04/11</b><span>Thứ tư · Còn nhiều phòng</span><strong>48%</strong></p><p><b>11/11</b><span>Thứ tư · Nhu cầu yếu</span><strong>52%</strong></p><p><b>25/11</b><span>Thứ tư · Cần ưu đãi</span><strong>55%</strong></p></div></section></section>
+    <section className="stats-grid feature-stats forecast-kpis"><StatCard label="Công suất thực tế" value="75%" note="Tính đến hôm nay" /><StatCard label="Công suất dự báo" value={`${forecast.expectedOccupancy}%`} note="Dự báo cuối giai đoạn" tone="blue" /><StatCard label="Khoảng dự báo" value="+/- 6 điểm %" note={`Độ tin cậy ${forecast.confidence}%`} tone="orange" /><StatCard label="Pick-up so với cùng kỳ" value="+18%" note={`${forecast.expectedBookings} đặt chỗ dự kiến`} tone="purple" /></section>
+    <section className="panel forecast-chart-panel"><SectionTitle kicker="ACTUAL VS FORECAST · CONFIDENCE BAND" title={`Công suất ${granularity.toLowerCase()}`} description={`${object} · ${range} · Dải màu là khoảng dự báo thấp–cao`} action={<span className="forecast-legend"><i className="actual-dot" /> Thực tế <i className="forecast-dot" /> Dự báo <i className="forecast-band-dot" /> Khoảng dự báo</span>} /><div className="demand-chart"><div className="demand-axis"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0</span></div><div className="demand-chart-area"><svg viewBox="0 0 760 240" preserveAspectRatio="none" aria-label="Biểu đồ công suất thực tế và dự báo"><path d="M380 102 C430 85 467 63 510 80 S567 45 610 62 S680 18 760 30 L760 92 C680 80 650 105 610 98 S560 116 510 124 S430 132 380 142Z" fill="#f0dfbb" opacity=".9" /><path d="M0 176 C46 164 76 168 118 152 S182 145 224 154 S278 126 320 137 L380 124 L380 240 L0 240Z" fill="#e2eee5" /><path d="M380 124 C430 116 467 92 510 106 S567 68 610 82 S680 38 760 48 L760 240 L380 240Z" fill="#f8f0e2" /><path d="M0 176 C46 164 76 168 118 152 S182 145 224 154 S278 126 320 137 S355 118 380 124" fill="none" stroke="#5e9c7d" strokeWidth="4" strokeLinecap="round" /><path d="M380 124 C430 116 467 92 510 106 S567 68 610 82 S680 38 760 48" fill="none" stroke="#b39462" strokeWidth="4" strokeLinecap="round" strokeDasharray="8 7" /></svg><div className="demand-dates"><span>01/11</span><span>08/11</span><span>15/11</span><span>22/11</span><span>30/11</span></div></div></div></section>
+    <section className="content-grid forecast-insights"><section className="panel"><SectionTitle kicker="PICK-UP PACE" title="Tốc độ nhận thêm đặt chỗ" description="So sánh số đặt chỗ mới với cùng kỳ trước." /><div className="pickup-summary"><strong>+18%</strong><span>pick-up so với cùng kỳ</span><div className="horizontal-bars"><p><span>Kỳ này</span><b>82%</b><i style={{ width: "82%" }} /></p><p><span>Cùng kỳ</span><b>64%</b><i style={{ width: "64%" }} /></p></div></div></section><section className="panel"><SectionTitle kicker="DEMAND ACTIONS" title="Ngày nên hành động" description="Hệ thống gợi ý theo nhu cầu và tốc độ đặt chỗ." /><div className="date-list low"><p><b>04/11</b><span>Đặt chậm · mở ưu đãi</span><strong>48%</strong></p><p><b>15/11</b><span>Nhu cầu cao · đóng giá thấp</span><strong>96%</strong></p><p><b>25/11</b><span>Pick-up yếu · mở ưu đãi</span><strong>55%</strong></p></div></section></section>
+    <section className="panel forecast-alert-panel"><SectionTitle kicker="DAILY ALERTS" title="Cảnh báo theo ngày" description={`Các ngày cần theo dõi cho ${object} trong ${range}.`} action={<select className="period-select" value={alertFilter} onChange={(event) => setAlertFilter(event.target.value)}><option>Tất cả cảnh báo</option><option>Mở ưu đãi</option><option>Đóng giá thấp</option></select>} /><DataTable headers={["NGÀY", "CÔNG SUẤT THỰC TẾ", "DỰ BÁO", "PICK-UP", "TÍN HIỆU", "KHUYẾN NGHỊ"]} rows={[["04/11", "48%", "52%", "−8%", <span className="status-tag amber-tag">Đặt chậm</span>, <span className="forecast-action offer-action">Mở ưu đãi</span>],["11/11", "52%", "55%", "+2%", <span className="status-tag amber-tag">Nhu cầu yếu</span>, <span className="forecast-action offer-action">Mở ưu đãi</span>],["15/11", "82%", "96%", "+24%", <span className="status-tag green-tag">Nhu cầu cao</span>, <span className="forecast-action close-action">Đóng giá thấp</span>],["21/11", "78%", "93%", "+19%", <span className="status-tag green-tag">Pick-up nhanh</span>, <span className="forecast-action close-action">Đóng giá thấp</span>],["25/11", "55%", "58%", "−4%", <span className="status-tag amber-tag">Đặt chậm</span>, <span className="forecast-action offer-action">Mở ưu đãi</span>]].filter((row) => alertFilter === "Tất cả cảnh báo" || row[5].props.children === alertFilter)} /></section>
   </>;
 }
 
@@ -351,20 +615,42 @@ function ConfigDashboard() {
 
 function HubTabs({ tabs, active, onChange }) { return <div className="hub-tabs" role="tablist">{tabs.map((tab) => <button key={tab} className={active === tab ? "active" : ""} onClick={() => onChange(tab)} role="tab" aria-selected={active === tab}>{tab}</button>)}</div>; }
 function DataMarketHub() { const [tab, setTab] = useState("Dữ liệu đầu vào"); return <div className="hub-page"><HubTabs tabs={["Dữ liệu đầu vào", "Giá đối thủ & sự kiện", "Thiết lập"]} active={tab} onChange={setTab} />{tab === "Dữ liệu đầu vào" ? <InputDataDashboard /> : tab === "Giá đối thủ & sự kiện" ? <MarketSignalsDashboard /> : <ConfigDashboard />}</div>; }
-function DecisionPricingDashboard() {
+function DecisionPricingDashboard({ currentRole = { role: "admin" }, currentUser }) {
   const [message, setMessage] = useState("");
   const [priceChange, setPriceChange] = useState(8);
   const [discount, setDiscount] = useState(0);
   const [capacity, setCapacity] = useState(80);
-  const [proposals, setProposals] = useState([
-    { id: 1, name: "Tăng giá Deluxe cuối tuần", price: "1.296.000 đ", impact: "+4,8M", status: "Chờ duyệt" },
-    { id: 2, name: "Giữ giá Standard giữa tuần", price: "800.000 đ", impact: "+0,6M", status: "Chờ duyệt" },
-  ]);
+  const [proposals, setProposals] = useState([]);
+  const [loadingProposals, setLoadingProposals] = useState(true);
+  const canCreate = ["admin", "revenue_manager", "revenue_manager_lead"].includes(currentRole.role);
+  const canApprove = ["admin", "sales_director"].includes(currentRole.role);
+  const apiHeaders = { "Content-Type": "application/json", "x-tourdss-role": currentRole.role };
+  useEffect(() => {
+    let mounted = true;
+    setLoadingProposals(true);
+    fetch("/api/proposals").then((response) => response.json()).then((result) => { if (mounted) setProposals(result.proposals || []); }).catch(() => { if (mounted) setMessage("Không thể tải danh sách đề xuất từ máy chủ."); }).finally(() => { if (mounted) setLoadingProposals(false); });
+    return () => { mounted = false; };
+  }, []);
   const revenue = (90 + priceChange * 0.6 - discount * 0.25 + (capacity - 80) * 0.12).toFixed(1);
   const occupancy = Math.max(48, Math.min(98, 75 - priceChange * 0.35 + discount * 0.55 + (capacity - 80) * 0.12)).toFixed(0);
-  const updateProposal = (id, status) => {
-    setProposals((current) => current.map((proposal) => proposal.id === id ? { ...proposal, status } : proposal));
-    setMessage(status === "Đã duyệt" ? "Đã duyệt đề xuất và cập nhật bảng giá." : status === "Đã từ chối" ? "Đã từ chối đề xuất." : "Đã mở chế độ chỉnh sửa đề xuất.");
+  const updateProposal = async (id, status) => {
+    if (status !== "Đã duyệt") {
+      setMessage("Luồng demo chỉ cho phép duyệt đề xuất ở vai trò Giám đốc Kinh doanh.");
+      return;
+    }
+    const response = await fetch(`/api/proposals/${id}`, { method: "PATCH", headers: apiHeaders });
+    const result = await response.json();
+    if (!response.ok) { setMessage(result.message || "Không thể duyệt đề xuất."); return; }
+    setProposals((current) => current.map((proposal) => proposal.id === id ? result.proposal : proposal));
+    setMessage("Đã duyệt đề xuất và cập nhật bảng giá.");
+  };
+  const createProposal = async () => {
+    if (!canCreate) { setMessage("Vai trò hiện tại không được tạo đề xuất giá."); return; }
+    const response = await fetch("/api/proposals", { method: "POST", headers: apiHeaders, body: JSON.stringify({ name: "Tăng giá Deluxe cuối tuần · Demo", price: "1.296.000 đ", impact: "+4,8M", createdBy: currentUser?.username || currentRole.role }) });
+    const result = await response.json();
+    if (!response.ok) { setMessage(result.message || "Không thể tạo đề xuất."); return; }
+    setProposals((current) => [result.proposal, ...current]);
+    setMessage("Đã tạo và lưu đề xuất giá mới ở trạng thái Chờ duyệt.");
   };
   const exportApproved = () => {
     const rows = proposals.filter((proposal) => proposal.status === "Đã duyệt");
@@ -380,14 +666,76 @@ function DecisionPricingDashboard() {
     <section className="panel price-options-panel"><SectionTitle kicker="PRICE OPTIONS" title="Các phương án giá" description="So sánh công suất, lợi nhuận dự kiến và trạng thái trước khi trình duyệt." /><div className="price-option-grid"><article className="price-option-card selected"><div className="price-option-head"><strong>Phương án cân bằng</strong><span className="status-tag green-tag">Khuyến nghị</span></div><b>1.296.000 đ</b><div className="price-option-metrics"><span><small>Công suất</small><strong>82%</strong></span><span><small>Lợi nhuận dự kiến</small><strong>+4,8M</strong></span></div><p>Giữ sức mua ổn định và tăng nhẹ giá cuối tuần.</p></article><article className="price-option-card"><div className="price-option-head"><strong>Phương án tăng trưởng</strong><span className="status-tag amber-tag">Đang đánh giá</span></div><b>1.350.000 đ</b><div className="price-option-metrics"><span><small>Công suất</small><strong>76%</strong></span><span><small>Lợi nhuận dự kiến</small><strong>+6,2M</strong></span></div><p>Ưu tiên biên lợi nhuận khi nhu cầu tăng cao.</p></article><article className="price-option-card"><div className="price-option-head"><strong>Phương án kích cầu</strong><span className="status-tag blue-tag">Bản nháp</span></div><b>1.220.000 đ</b><div className="price-option-metrics"><span><small>Công suất</small><strong>89%</strong></span><span><small>Lợi nhuận dự kiến</small><strong>+3,1M</strong></span></div><p>Tăng công suất bằng mức giá mềm cho ngày thấp điểm.</p></article></div><div className="pricing-workflow-actions"><button className="primary-button" type="button" onClick={() => setMessage("Đã chạy mô phỏng What-If cho phương án đang chọn.")}>▶ Chạy What-If</button><button type="button" onClick={() => setMessage("Đã mở bảng so sánh các mức giá.")}>⇄ So sánh mức giá</button><button type="button" onClick={() => setMessage("Đã lưu phương án giá thành bản nháp.")}>⌁ Lưu nháp</button><button type="button" onClick={() => setMessage("Đã trình phương án cho người duyệt.")}>↗ Trình duyệt</button><button type="button" onClick={() => setMessage("Đã mở theo dõi kết quả phương án giá.")}>◷ Theo dõi kết quả</button></div></section>
     <PageHeader eyebrow="PRICE DECISION CENTER" title={<>Quyết định <em>giá.</em></>} description="Duyệt đề xuất, thử kịch bản What-If và xuất bảng giá đã được thông qua trong cùng một màn hình." action={<Button onClick={exportApproved}>Xuất bảng giá đã duyệt ↗</Button>} />
     {message && <div className="notice-banner">✓ {message}</div>}
-    <section className="pricing-actions"><div><span className="section-kicker">QUYẾT ĐỊNH GIÁ</span><strong>Đề xuất chờ xử lý</strong></div><button onClick={() => setMessage("Đã tạo đề xuất giá mới.")}>＋ Tạo đề xuất</button></section>
-    <section className="panel pending-panel"><SectionTitle kicker="PENDING PROPOSALS" title="Đề xuất chờ duyệt" description="Kiểm tra tác động và ghi nhận quyết định cuối cùng." /><div className="pending-list">{proposals.filter((proposal) => proposal.status === "Chờ duyệt").map((proposal) => <article key={proposal.id}><div><span className="pending-icon">₫</span><span><strong>{proposal.name}</strong><small>Giá đề xuất {proposal.price} · Tác động {proposal.impact}</small></span></div><span className="status-tag amber-tag">{proposal.status}</span><div className="pending-buttons"><button onClick={() => updateProposal(proposal.id, "Đã duyệt")}>Duyệt</button><button onClick={() => updateProposal(proposal.id, "Đang chỉnh sửa")}>Chỉnh sửa</button><button onClick={() => updateProposal(proposal.id, "Đã từ chối")}>Từ chối</button></div></article>)}</div>{proposals.every((proposal) => proposal.status !== "Chờ duyệt") && <p className="empty-state">Không còn đề xuất chờ duyệt.</p>}</section>
+    <section className="pricing-actions"><div><span className="section-kicker">QUYẾT ĐỊNH GIÁ · {currentRole.roleName || "Quản trị viên"}</span><strong>Đề xuất chờ xử lý</strong></div>{canCreate && <button onClick={createProposal}>＋ Tạo và lưu đề xuất</button>}</section>
+    <section className="panel pending-panel"><SectionTitle kicker="PENDING PROPOSALS" title="Đề xuất chờ duyệt" description="Dữ liệu được lưu trên backend và giữ nguyên khi chuyển vai trò." /><div className="pending-list">{loadingProposals ? <p className="empty-state">Đang tải đề xuất...</p> : proposals.filter((proposal) => proposal.status === "Chờ duyệt").map((proposal) => <article key={proposal.id}><div><span className="pending-icon">₫</span><span><strong>{proposal.name}</strong><small>Giá đề xuất {proposal.price} · Tác động {proposal.impact}</small></span></div><span className="status-tag amber-tag">{proposal.status}</span><div className="pending-buttons">{canApprove ? <button onClick={() => updateProposal(proposal.id, "Đã duyệt")}>Duyệt</button> : <span className="permission-note">Chờ Giám đốc duyệt</span>}</div></article>)}</div>{!loadingProposals && proposals.every((proposal) => proposal.status !== "Chờ duyệt") && <p className="empty-state">Không còn đề xuất chờ duyệt.</p>}</section>
     <section className="content-grid pricing-decision-grid"><section className="panel whatif-controls"><SectionTitle kicker="WHAT-IF SIMULATION" title="Mô phỏng phương án" description="Thử thay đổi giá trước khi duyệt để xem tác động dự kiến." /><label className="whatif-range"><span>Thay đổi giá <b>{priceChange > 0 ? "+" : ""}{priceChange}%</b></span><input type="range" min="-15" max="20" value={priceChange} onChange={(event) => setPriceChange(Number(event.target.value))} /></label><label className="whatif-range"><span>Ưu đãi / giảm giá <b>{discount}%</b></span><input type="range" min="0" max="30" value={discount} onChange={(event) => setDiscount(Number(event.target.value))} /></label><label className="whatif-range"><span>Phân bổ công suất <b>{capacity}%</b></span><input type="range" min="50" max="100" value={capacity} onChange={(event) => setCapacity(Number(event.target.value))} /></label><button className="primary-button run-simulation" onClick={() => setMessage("Đã cập nhật kết quả mô phỏng What-If.")}>▶ Chạy mô phỏng</button></section><section className="panel whatif-result"><SectionTitle kicker="EXPECTED RESULT" title="Kết quả mô phỏng What-If" description="Tác động dự kiến trong 7 ngày." /><div className="whatif-result-number">{revenue}<small>M</small><span>doanh thu dự kiến</span></div><div className="whatif-result-grid"><div><strong>{occupancy}%</strong><span>Công suất</span></div><div><strong>+{(priceChange * .32 - discount * .18).toFixed(1)}%</strong><span>Lợi nhuận</span></div><div><strong>{priceChange > 0 ? "+" : ""}{(priceChange * .6 - discount * .25).toFixed(1)}M</strong><span>Tác động ròng</span></div></div></section></section>
     <section className="panel approved-price-panel"><SectionTitle kicker="APPROVED PRICE LIST" title="Bảng giá đã duyệt" description="Các đề xuất đã được thông qua và sẵn sàng áp dụng." /><DataTable headers={["SẢN PHẨM", "GIÁ", "TÁC ĐỘNG", "TRẠNG THÁI"]} rows={proposals.filter((proposal) => proposal.status === "Đã duyệt").map((proposal) => [<strong>{proposal.name}</strong>, proposal.price, proposal.impact, <span className="status-tag green-tag">{proposal.status}</span>])} /></section>
   </>;
 }
 
-function PricingDecisionHub() { return <div className="hub-page"><DecisionPricingDashboard /></div>; }
+function DecisionCenterDashboard({ currentRole = { role: "admin", roleName: "Quản trị viên" }, currentUser }) {
+  const canCreate = ["revenue_manager", "revenue_manager_lead"].includes(currentRole.role);
+  const canProcess = currentRole.role === "sales_director";
+  const accessLabel = canProcess ? "Duyệt, chỉnh sửa hoặc từ chối" : "Tạo, lưu và trình đề xuất";
+  const [room, setRoom] = useState("Deluxe Ocean View");
+  const [channel, setChannel] = useState("Website trực tiếp");
+  const [period, setPeriod] = useState("7 ngày tới");
+  const [proposals, setProposals] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
+  const [message, setMessage] = useState("");
+  const [savedProposal, setSavedProposal] = useState(false);
+  const [checks, setChecks] = useState({ floor: true, ceiling: true, capacity: true });
+  const [loading, setLoading] = useState(true);
+  const apiHeaders = { "Content-Type": "application/json", "x-tourdss-role": currentRole.role };
+  const loadProposals = () => { setLoading(true); fetch("/api/proposals").then((response) => response.json()).then((result) => setProposals(result.proposals || [])).catch(() => setMessage("Không thể tải phiếu chờ duyệt từ máy chủ.")).finally(() => setLoading(false)); };
+  useEffect(() => { loadProposals(); }, []);
+  const currentPrice = room === "Suite Premium" ? "2.000.000 đ" : room === "Standard Garden" ? "800.000 đ" : "1.200.000 đ";
+  const proposedPrice = room === "Suite Premium" ? "2.160.000 đ" : room === "Standard Garden" ? "840.000 đ" : "1.296.000 đ";
+  const roomPhotos = {
+    "Standard Garden": { src: "/images/anh-nen-login.png", position: "left center" },
+    "Deluxe Ocean View": { src: "/images/anh-nen-khach-san.png", position: "center center" },
+    "Suite Premium": { src: "/images/anh-nen-login.png", position: "right center" },
+    "Tour đảo 1 ngày": { src: "/images/combo-sunset.png", position: "center" },
+  };
+  const roomCapacities = {
+    "Standard Garden": "2 khách / phòng",
+    "Deluxe Ocean View": "2 khách / phòng",
+    "Suite Premium": "4 khách / phòng",
+    "Tour đảo 1 ngày": "32 khách / chuyến",
+  };
+  const selectedRoomPhoto = roomPhotos[room] || roomPhotos["Deluxe Ocean View"];
+  const selectedProposal = proposals.find((proposal) => proposal.id === selectedId);
+  const createProposal = async () => {
+    if (!canCreate) { setMessage("Vai trò hiện tại không được lưu đề xuất giá."); return; }
+    const failed = Object.entries(checks).filter(([, valid]) => !valid).map(([key]) => ({ floor: "giá sàn", ceiling: "giá trần", capacity: "công suất" }[key]));
+    if (failed.length) { setMessage(`Chưa thể lưu: cần kiểm tra ${failed.join(", ")}.`); return; }
+    const body = { name: `Đề xuất ${room} · ${period}`, room, channel, period, price: proposedPrice, proposedPrice, impact: "+4,8M", score: 86, ranking: "1/3", reason: "Nhu cầu cuối tuần tăng, vẫn nằm trong biên giá và bảo vệ RevPAR.", revpar: "1,06M", expectedProfit: "+4,8M", constraints: ["Trong giá sàn / giá trần", "Không vượt công suất", "Rủi ro hủy trong ngưỡng"], createdBy: currentUser?.username || currentRole.role };
+    const response = await fetch("/api/proposals", { method: "POST", headers: apiHeaders, body: JSON.stringify(body) });
+    const result = await response.json();
+    if (!response.ok) { setMessage(result.message || "Không thể lưu đề xuất."); return; }
+    setProposals((current) => [result.proposal, ...current]); setSelectedId(result.proposal.id); setSavedProposal(true); setMessage("Đã kiểm tra ràng buộc và lưu phiếu chờ duyệt.");
+  };
+  const processProposal = async (proposal, action) => {
+    if (!canProcess) { setMessage("Chỉ Giám đốc Kinh doanh mới được xử lý phiếu."); return; }
+    const labels = { approve: "Duyệt", edit: "Chuyển chỉnh sửa", reject: "Từ chối" };
+    const note = window.prompt(`Ghi chú khi ${labels[action].toLowerCase()}:`, action === "approve" ? "Đã kiểm tra căn cứ và đồng ý áp dụng." : "");
+    if (note === null) return;
+    const response = await fetch(`/api/proposals/${proposal.id}`, { method: "PATCH", headers: apiHeaders, body: JSON.stringify({ action, note, processedBy: currentUser?.username || currentRole.roleName }) });
+    const result = await response.json();
+    if (!response.ok) { setMessage(result.message || "Không thể xử lý phiếu."); return; }
+    setProposals((current) => current.map((item) => item.id === proposal.id ? result.proposal : item)); setMessage(`Đã ${labels[action].toLowerCase()} phiếu và ghi nhận người xử lý, thời điểm, ghi chú.`);
+  };
+  return <>
+    <PageHeader eyebrow="PRICE DECISION CENTER" title={<>Trung tâm <em>quyết định giá.</em></>} description="Kiểm tra phương án, ràng buộc và căn cứ trước khi quản lý lưu đề xuất hoặc Giám đốc đưa ra quyết định." action={<span className="status-tag gray-tag">{accessLabel}</span>} />
+    <section className="decision-filters"><div><span className="section-kicker">DECISION SCOPE</span><strong>Chọn phạm vi ra quyết định</strong></div><label>Hạng phòng / tour<select value={room} onChange={(event) => setRoom(event.target.value)}><option>Standard Garden</option><option>Deluxe Ocean View</option><option>Suite Premium</option><option>Tour đảo 1 ngày</option></select></label><label>Kênh bán<select value={channel} onChange={(event) => setChannel(event.target.value)}><option>Website trực tiếp</option><option>OTA · Booking</option><option>Đại lý / B2B</option></select></label><label>Giai đoạn<select value={period} onChange={(event) => setPeriod(event.target.value)}><option>7 ngày tới</option><option>30 ngày tới</option><option>Quý tới</option></select></label></section>
+    <section className="decision-option-grid"><article className="panel decision-price-card"><span className="section-kicker">PHƯƠNG ÁN ĐANG CHỌN</span><div className="decision-room-summary"><div className="decision-room-photo" role="img" aria-label={`Ảnh ${room}`} style={{ backgroundImage: `url('${selectedRoomPhoto.src}')`, backgroundPosition: selectedRoomPhoto.position }} /><div className="decision-room-info"><h3>{room}</h3><span>Sức chứa · {roomCapacities[room] || "Theo sản phẩm"}</span><span>Giá hiện tại · <strong>{currentPrice}</strong></span></div><div className="decision-proposed-price"><small>GIÁ ĐỀ XUẤT</small><strong>{proposedPrice}</strong></div></div><div className="decision-recommendation-reason"><strong>Lý do đề xuất</strong><p>Nhu cầu cuối tuần tăng, vẫn nằm trong biên giá và bảo vệ RevPAR.</p></div><div className="decision-metrics"><span><small>Điểm</small><strong>86/100</strong></span><span><small>Thứ hạng</small><strong>1/3</strong></span><span><small>RevPAR</small><strong>1,06M</strong></span><span><small>Lợi nhuận dự kiến</small><strong>+4,8M</strong></span></div></article><article className="panel constraint-card"><SectionTitle kicker="CONSTRAINT CHECK" title="Kiểm tra ràng buộc" description="Phải đạt đủ điều kiện trước khi lưu phiếu." /><label><input type="checkbox" checked={checks.floor} onChange={(event) => setChecks({ ...checks, floor: event.target.checked })} /> Trong giá sàn</label><label><input type="checkbox" checked={checks.ceiling} onChange={(event) => setChecks({ ...checks, ceiling: event.target.checked })} /> Không vượt giá trần</label><label><input type="checkbox" checked={checks.capacity} onChange={(event) => setChecks({ ...checks, capacity: event.target.checked })} /> Không vượt công suất</label>{canCreate && <><button className="primary-button" type="button" onClick={createProposal}>＋ Kiểm tra và lưu đề xuất</button>{savedProposal && <button className="secondary-button" type="button" onClick={() => setMessage("Đã trình đề xuất cho Giám đốc Kinh doanh.")}>↗ Trình đề xuất</button>}</>}</article></section>
+    {message && <div className="notice-banner">✓ {message}</div>}
+    <section className="decision-alert-grid"><article className="panel"><SectionTitle kicker="PRICE GUARDRAILS" title="Cảnh báo cần chú ý" /><div className="decision-alert warning"><strong>⚠ Đóng mức giá thấp</strong><span>Nhu cầu cao 96% vào 15/11 · nên bảo vệ giá.</span></div><div className="decision-alert danger"><strong>⚠ Rủi ro hủy</strong><span>OTA · Booking đang có tỷ lệ hủy dự kiến 12%.</span></div><div className="decision-alert"><strong>⚠ Nhận đặt vượt công suất</strong><span>Standard Garden còn 8 phòng khả dụng trong ngày cao điểm.</span></div></article><article className="panel"><SectionTitle kicker="OPTION SCORECARD" title="Điểm và thứ hạng phương án" /><DataTable headers={["PHƯƠNG ÁN", "GIÁ ĐỀ XUẤT", "ĐIỂM", "THỨ HẠNG", "REVPAR", "LỢI NHUẬN"]} rows={[["Cân bằng", "1.296.000 đ", "86/100", "1/3", "1,06M", "+4,8M"],["Tăng trưởng", "1.350.000 đ", "81/100", "2/3", "1,02M", "+6,2M"],["Kích cầu", "1.220.000 đ", "74/100", "3/3", "980K", "+3,1M"]]} /></article></section>
+    <section className="panel pending-panel decision-ticket-panel"><SectionTitle kicker="APPROVAL TICKETS" title="Phiếu chờ duyệt" description="Giám đốc mở phiếu để xem căn cứ, sau đó duyệt, chuyển chỉnh sửa hoặc từ chối." /><div className="pending-list">{loading ? <p className="empty-state">Đang tải phiếu...</p> : proposals.map((proposal) => <article key={proposal.id} className={selectedId === proposal.id ? "ticket-selected" : ""}><div><span className="pending-icon">₫</span><span><strong>{proposal.name}</strong><small>{proposal.room || "Deluxe Ocean View"} · {proposal.channel || "Website trực tiếp"} · Tạo bởi {proposal.createdBy}</small></span></div><span className={`status-tag ${proposal.status === "Đã duyệt" ? "green-tag" : proposal.status === "Đã từ chối" ? "gray-tag" : "amber-tag"}`}>{proposal.status}</span><div className="pending-buttons"><button type="button" onClick={() => setSelectedId(selectedId === proposal.id ? null : proposal.id)}>Xem căn cứ</button>{canProcess && proposal.status === "Chờ duyệt" && <><button type="button" onClick={() => processProposal(proposal, "approve")}>Duyệt</button><button type="button" onClick={() => processProposal(proposal, "edit")}>Chỉnh sửa</button><button type="button" onClick={() => processProposal(proposal, "reject")}>Từ chối</button></>}</div>{selectedId === proposal.id && <div className="ticket-evidence"><p><b>Giá hiện tại:</b> {currentPrice} · <b>Giá đề xuất:</b> {proposal.proposedPrice || proposal.price}</p><p><b>Lý do:</b> {proposal.reason || "Cân bằng công suất và biên lợi nhuận."}</p><p><b>RevPAR:</b> {proposal.revpar || "1,06M"} · <b>Lợi nhuận:</b> {proposal.expectedProfit || proposal.impact}</p>{proposal.processedAt && <p><b>Xử lý:</b> {proposal.processedBy} · {new Date(proposal.processedAt).toLocaleString("vi-VN")} · {proposal.note || "Không có ghi chú"}</p>}</div>}</article>)}</div>{!loading && !proposals.length && <p className="empty-state">Chưa có phiếu chờ duyệt.</p>}</section>
+  </>;
+}
+
+function PricingDecisionHub({ currentRole, currentUser }) { return <div className="hub-page"><DecisionCenterDashboard currentRole={currentRole} currentUser={currentUser} /></div>; }
 
 export default App;
 
